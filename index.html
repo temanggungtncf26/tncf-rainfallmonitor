@@ -265,7 +265,7 @@ let historyData = [];
 // ============================================================
 //  KONFIGURASI GAS API URL
 //  Isi dengan URL deployment GAS kamu setelah deploy sebagai Web App
-//  Contoh: 'https://script.google.com/macros/s/AKfycb.../exec'
+//  Contoh: 'https://script.google.com/macros/s/AKfycbzJL-N5UcevIHBK5Yp_ahJ2asnCQaQQ18BiT97KjcCFEhefcuQBpm8MWkNIsejoyNsvog/exec'
 // ============================================================
 const GAS_URL = localStorage.getItem('gas_url') || '';
 
@@ -351,7 +351,7 @@ function renderLogin() {
             <div class="alert alert-warning p-2 mb-3" style="font-size:0.8rem;">
                 <strong>⚙️ Setup API URL</strong><br>
                 Masukkan URL GAS deployment kamu agar data terhubung ke Spreadsheet.
-                <input type="text" id="gas-url-input" class="form-control form-control-sm mt-2" placeholder="https://script.google.com/macros/s/.../exec" value="${savedUrl}">
+                <input type="text" id="gas-url-input" class="form-control form-control-sm mt-2" placeholder="https://script.google.com/macros/s/AKfycbzJL-N5UcevIHBK5Yp_ahJ2asnCQaQQ18BiT97KjcCFEhefcuQBpm8MWkNIsejoyNsvog/exec" value="${savedUrl}">
                 <button class="btn btn-warning btn-sm w-100 mt-2 fw-bold" onclick="saveGasUrl()">Simpan & Sambungkan</button>
             </div>` : `
             <div class="alert alert-success p-2 mb-3" style="font-size:0.78rem;">
@@ -370,7 +370,7 @@ function renderLogin() {
 function saveGasUrl() {
     const url = document.getElementById('gas-url-input').value.trim();
     if (!url || !url.startsWith('https://script.google.com')) {
-        Swal.fire('URL Tidak Valid', 'Masukkan URL GAS yang benar (https://script.google.com/macros/s/.../exec)', 'error');
+        Swal.fire('URL Tidak Valid', 'Masukkan URL GAS yang benar (https://script.google.com/macros/s/AKfycbzJL-N5UcevIHBK5Yp_ahJ2asnCQaQQ18BiT97KjcCFEhefcuQBpm8MWkNIsejoyNsvog/exec)', 'error');
         return;
     }
     localStorage.setItem('gas_url', url);
