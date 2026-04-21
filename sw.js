@@ -12,19 +12,21 @@ const SHELL_CACHE   = `${CACHE_VERSION}-shell`;
 const CDN_CACHE     = `${CACHE_VERSION}-cdn`;
 
 // ─── App Shell: file-file lokal yang wajib di-cache ───────────────────────────
-const REPO_PATH = '/tncf-rainfallmonitor';
+// PENTING: Gunakan path relatif — SW hanya boleh cache dalam scope-nya sendiri.
+// GitHub Pages tidak support header Service-Worker-Allowed tanpa server config.
+const BASE = self.registration.scope; // contoh: https://user.github.io/tncf-rainfallmonitor/
 const SHELL_ASSETS = [
-  `${REPO_PATH}/index.html`,
-  `${REPO_PATH}/offline.html`,
-  `${REPO_PATH}/manifest.json`,
-  `${REPO_PATH}/icon-72.png`,
-  `${REPO_PATH}/icon-96.png`,
-  `${REPO_PATH}/icon-128.png`,
-  `${REPO_PATH}/icon-144.png`,
-  `${REPO_PATH}/icon-152.png`,
-  `${REPO_PATH}/icon-192.png`,
-  `${REPO_PATH}/icon-384.png`,
-  `${REPO_PATH}/icon-512.png`
+  BASE + 'index.html',
+  BASE + 'offline.html',
+  BASE + 'manifest.json',
+  BASE + 'icon-72.png',
+  BASE + 'icon-96.png',
+  BASE + 'icon-128.png',
+  BASE + 'icon-144.png',
+  BASE + 'icon-152.png',
+  BASE + 'icon-192.png',
+  BASE + 'icon-384.png',
+  BASE + 'icon-512.png'
 ];
 
 // ─── CDN Assets: di-cache saat pertama kali diminta ───────────────────────────
@@ -164,7 +166,6 @@ async function networkFirst(request, cacheName) {
 
 async function navigationHandler(request) {
   try {
-    // Coba network dulu untuk navigasi agar konten selalu fresh
     const response = await fetch(request);
     if (response.ok) {
       const cache = await caches.open(SHELL_CACHE);
@@ -174,10 +175,11 @@ async function navigationHandler(request) {
   } catch {
     // Offline — coba cache dulu
   }
-  const cached = await caches.match(request) || await caches.match('./index.html');
+  // Gunakan BASE agar cache key cocok dengan apa yang di-cache saat install
+  const cached = await caches.match(request)
+    || await caches.match(BASE + 'index.html');
   if (cached) return cached;
-  // Last resort: offline page
-  return caches.match('./offline.html');
+  return caches.match(BASE + 'offline.html');
 }
 
 // ─── Background Sync (untuk simpan data saat offline) ─────────────────────────

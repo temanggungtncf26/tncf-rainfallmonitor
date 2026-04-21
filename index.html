@@ -17,8 +17,8 @@
     <meta name="msapplication-TileImage" content="icon-144.png">
     <meta name="msapplication-config" content="browserconfig.xml">
 
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="manifest.json">
+    <!-- PWA Manifest — path absolut wajib untuk GitHub Pages subfolder -->
+    <link rel="manifest" href="/tncf-rainfallmonitor/manifest.json">
 
     <!-- Ikon untuk iOS (Apple Touch Icon) -->
     <link rel="apple-touch-icon" sizes="152x152" href="icon-152.png">
@@ -263,6 +263,21 @@ let myChartHH = null;
 let historyData = []; // Wadah penyimpan data riwayat untuk fitur Edit
 const isSimulated = typeof google === 'undefined';
 
+/* ===== KRITIS: beforeinstallprompt HARUS didaftarkan PERTAMA kali ===== */
+// Jangan taruh di bawah — event ini bisa fired sebelum window.onload!
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    console.log('[PWA] beforeinstallprompt ditangkap ✓');
+    // Tampilkan banner segera setelah halaman selesai render
+    if (document.readyState === 'complete') {
+        showInstallBanner();
+    } else {
+        window.addEventListener('load', showInstallBanner, { once: true });
+    }
+});
+
 // Data Simulasi (Hanya aktif di Mode Preview Canvas)
 const mockUsers = [
     { username: "DAWAM", password: "SUPER26", nama: "DAWAM", role: "MANAGER", site: "ALL" },
@@ -402,6 +417,7 @@ function renderMainLayout() {
                 <div class="px-3 mt-auto">
                     <hr>
                     <div class="small text-muted mb-2 text-truncate">${currentUser.nama}</div>
+                    <button id="sidebar-install-btn" onclick="installPWA()" class="btn btn-outline-success w-100 btn-sm fw-bold mb-2" style="display:none"><i class="fas fa-download me-1"></i>Install App</button>
                     <button class="btn btn-outline-danger w-100 btn-sm fw-bold" onclick="handleLogout()">LOGOUT</button>
                 </div>
             </nav>
@@ -413,6 +429,8 @@ function renderMainLayout() {
     </div>`;
 
     switchMenu('dashboard');
+    // Tampilkan tombol install di sidebar jika PWA belum diinstall
+    setTimeout(refreshInstallButton, 500);
 }
 
 function switchMenu(menuId) {
@@ -874,7 +892,6 @@ function fetchData(cb) {
 }
 
 /* ===== PWA INSTALL BANNER ===== */
-let deferredPrompt;
 
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
@@ -885,7 +902,13 @@ window.addEventListener('beforeinstallprompt', (e) => {
 function showInstallBanner() {
     // Jangan tampilkan kalau sudah pernah di-dismiss
     if (localStorage.getItem('pwa_dismissed')) return;
+    // Jangan tampilkan kalau deferredPrompt belum ada
+    if (!deferredPrompt) return;
     
+    // Hapus banner lama kalau ada
+    const old = document.getElementById('install-banner');
+    if (old) old.remove();
+
     const banner = document.createElement('div');
     banner.id = 'install-banner';
     banner.innerHTML = `
@@ -895,8 +918,9 @@ function showInstallBanner() {
             border-radius: 12px; display: flex; align-items: center; 
             justify-content: space-between; z-index: 9998;
             box-shadow: 0 4px 15px rgba(0,0,0,0.2); font-size: 0.85rem;
+            animation: slideUp 0.4s ease;
         ">
-            <span>📲 Install app Curah Hujan di HP kamu?</span>
+            <span>📲 Install app TNCF di HP kamu?</span>
             <div>
                 <button onclick="installPWA()" style="
                     background: white; color: #319795; border: none; 
@@ -934,7 +958,16 @@ function dismissBanner() {
 window.addEventListener('appinstalled', () => {
     console.log('[PWA] App berhasil diinstall');
     dismissBanner();
+    // Sembunyikan tombol install di sidebar
+    const btn = document.getElementById('sidebar-install-btn');
+    if (btn) btn.style.display = 'none';
 });
+
+// Tampilkan tombol install di sidebar jika deferredPrompt tersedia
+function refreshInstallButton() {
+    const btn = document.getElementById('sidebar-install-btn');
+    if (btn) btn.style.display = deferredPrompt ? 'block' : 'none';
+}
 
 /* ===== SERVICE WORKER REGISTRATION ===== */
 let swRegistration = null;
@@ -942,7 +975,9 @@ let newWorker = null;
 
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js', { scope: '/tncf-rainfallmonitor/' })
+        // Daftarkan SW TANPA explicit scope — browser otomatis set scope ke lokasi sw.js
+        // Ini wajib untuk GitHub Pages karena tidak support header Service-Worker-Allowed
+        navigator.serviceWorker.register('./sw.js')
             .then(reg => {
                 swRegistration = reg;
                 console.log('[PWA] Service Worker terdaftar:', reg.scope);

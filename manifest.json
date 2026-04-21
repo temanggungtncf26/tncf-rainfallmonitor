@@ -2,7 +2,7 @@
   "name": "TNCF Rainfall Monitor",
   "short_name": "TNCF Rain",
   "description": "Aplikasi Monitoring Curah Hujan TNCF - Pantau data hujan harian, rekapitulasi, dan analisis curah hujan secara real-time.",
-  "start_url": "/tncf-rainfallmonitor/index.html?pwa=1",
+  "start_url": "/tncf-rainfallmonitor/",
   "scope": "/tncf-rainfallmonitor/",
   "display": "standalone",
   "orientation": "portrait-primary",
@@ -13,49 +13,49 @@
   "categories": ["weather", "utilities", "productivity"],
   "icons": [
     {
-      "src": "icon-72.png",
+      "src": "/tncf-rainfallmonitor/icon-72.png",
       "sizes": "72x72",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "icon-96.png",
+      "src": "/tncf-rainfallmonitor/icon-96.png",
       "sizes": "96x96",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "icon-128.png",
+      "src": "/tncf-rainfallmonitor/icon-128.png",
       "sizes": "128x128",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "icon-144.png",
+      "src": "/tncf-rainfallmonitor/icon-144.png",
       "sizes": "144x144",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "icon-152.png",
+      "src": "/tncf-rainfallmonitor/icon-152.png",
       "sizes": "152x152",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "icon-192.png",
+      "src": "/tncf-rainfallmonitor/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "icon-384.png",
+      "src": "/tncf-rainfallmonitor/icon-384.png",
       "sizes": "384x384",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "icon-512.png",
+      "src": "/tncf-rainfallmonitor/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
@@ -63,7 +63,7 @@
   ],
   "screenshots": [
     {
-      "src": "icon-512.png",
+      "src": "/tncf-rainfallmonitor/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "form_factor": "narrow",
@@ -75,15 +75,15 @@
       "name": "Input Data Hujan",
       "short_name": "Input",
       "description": "Buka halaman input data curah hujan",
-      "url": "/tncf-rainfallmonitor/index.html#input",
-      "icons": [{ "src": "icon-96.png", "sizes": "96x96" }]
+      "url": "/tncf-rainfallmonitor/#input",
+      "icons": [{ "src": "/tncf-rainfallmonitor/icon-96.png", "sizes": "96x96" }]
     },
     {
       "name": "Dashboard",
       "short_name": "Dashboard",
       "description": "Buka dashboard monitoring",
-      "url": "/tncf-rainfallmonitor/index.html#dashboard",
-      "icons": [{ "src": "icon-96.png", "sizes": "96x96" }]
+      "url": "/tncf-rainfallmonitor/#dashboard",
+      "icons": [{ "src": "/tncf-rainfallmonitor/icon-96.png", "sizes": "96x96" }]
     }
   ],
   "prefer_related_applications": false
