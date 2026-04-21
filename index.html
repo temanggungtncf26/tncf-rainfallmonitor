@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Monitoring Curah Hujan</title>
+
+    <!-- ===== PWA META TAGS ===== -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="TNCF Rain">
+    <meta name="theme-color" content="#319795">
+    <meta name="description" content="Aplikasi Monitoring Curah Hujan TNCF - Pantau data hujan harian, rekapitulasi, dan analisis curah hujan.">
+    <meta name="application-name" content="TNCF Rainfall Monitor">
+    <meta name="msapplication-TileColor" content="#319795">
+    <meta name="msapplication-TileImage" content="icon-144.png">
+    <meta name="msapplication-config" content="browserconfig.xml">
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+
+    <!-- Ikon untuk iOS (Apple Touch Icon) -->
+    <link rel="apple-touch-icon" sizes="152x152" href="icon-152.png">
+    <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
+    <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png">
+    <!-- Fallback icon via Google Drive (jika ikon lokal tidak ada) -->
+    <link rel="apple-touch-icon" href="https://lh3.googleusercontent.com/d/1JwSssgU-Dcvy6ovrA2fTk4Pq2z7Wf6Np">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="96x96" href="icon-96.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+
+    <!-- iOS Splash Screens -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-startup-image" href="icon-512.png">
+
+    <!-- Library Eksternal -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Library untuk Export -->
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+
+    <style>
+        :root { --primary: #319795; --bg-main: #e2e8f0; --bg-card: #ffffff; --text-dark: #2d3748; --text-muted: #718096; }
+        body { 
+            background: var(--bg-main); 
+            background-attachment: fixed; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            color: var(--text-dark);
+        }
+        
+        /* Layout Sidebar & Content (Clean Solid UI) */
+        .sidebar { 
+            min-height: 100vh; 
+            background: var(--bg-card); 
+            border-right: 1px solid #edf2f7; 
+            position: fixed; width: 16.666667%; top: 0; bottom: 0; left: 0; z-index: 100; padding: 20px 0; 
+            box-shadow: 2px 0 10px rgba(0,0,0,0.02); display: flex; flex-direction: column; 
+        }
+        .main-content { margin-left: 16.666667%; padding: 2rem; width: 83.333333%; }
+        
+        /* Responsive Mobile */
+        @media (max-width: 768px) {
+            .sidebar { display: none; }
+            .main-content { margin-left: 0; width: 100%; padding: 1rem; margin-bottom: 60px; }
+        }
+
+        /* Components */
+        .nav-link { color: var(--text-muted); padding: 12px 20px; font-weight: 500; display: flex; align-items: center; text-decoration: none; margin-bottom: 5px; cursor: pointer; transition: 0.3s; margin-right: 15px; border-radius: 0 25px 25px 0; }
+        .nav-link:hover, .nav-link.active { background: rgba(49, 151, 149, 0.08); color: var(--primary) !important; font-weight: 600; border-right: 4px solid var(--primary); }
+        .nav-link i { width: 25px; }
+        
+        /* Clean Solid Card */
+        .card { 
+            border: 1px solid #ffffff; 
+            border-radius: 16px; 
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03); 
+            background: var(--bg-card); 
+        }
+
+        /* Form Inputs & Select in Clean UI */
+        .form-control, .form-select { background: #f8fafc; border: 1px solid #e2e8f0; color: var(--text-dark); border-radius: 8px; }
+        .form-control:focus, .form-select:focus { background: #ffffff; box-shadow: 0 0 0 0.25rem rgba(49, 151, 149, 0.15); border-color: var(--primary); }
+        
+        /* Loading Overlay */
+        #loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); display: none; align-items: center; justify-content: center; flex-direction: column; z-index: 9999; }
+        
+        /* Table Recap Styling (Solid Colors) */
+        .table-recap { font-size: 0.8rem; background: var(--bg-card); color: var(--text-dark); }
+        .table-recap th { background-color: #f7fafc !important; color: #4a5568 !important; font-weight: 700; text-align: center; vertical-align: middle; border-bottom: 1px solid #e2e8f0; }
+        .table-recap td { text-align: center; vertical-align: middle; background: var(--bg-card); border-color: #edf2f7; }
+        .col-obs { text-align: left !important; font-weight: bold; min-width: 100px; background-color: #f7fafc !important; position: sticky; left: 0; border-right: 1px solid #e2e8f0; z-index: 10; }
+        .row-calc td { background-color: #fffaf0 !important; font-weight: bold; border-top: 1px solid #ecc94b; border-bottom: 1px solid #ecc94b; }
+        .row-ref td { background-color: #edf2f7 !important; font-weight: bold; color: var(--text-dark); }
+        .row-result td { background-color: #f0fff4 !important; font-weight: bold; }
+        
+        /* Clean Table (Riwayat & Kelola) */
+        .table { --bs-table-bg: transparent; --bs-table-color: var(--text-dark); }
+        .table th { background-color: #f7fafc !important; border-bottom: 2px solid #e2e8f0; }
+        .table td { background-color: var(--bg-card) !important; border-bottom: 1px solid #edf2f7; }
+        .table-hover tbody tr:hover td { background-color: #f7fafc !important; }
+
+        /* Clean Mobile Navs */
+        .glass-mobile-nav { background: var(--bg-card) !important; border-top: 1px solid #e2e8f0; }
+        .glass-mobile-top { background: var(--bg-card) !important; border-bottom: 1px solid #e2e8f0; color: var(--text-dark) !important; }
+        .glass-mobile-top button { color: var(--text-dark) !important; background: #f7fafc !important; border: 1px solid #e2e8f0 !important; }
+        .scroll-container { max-height: 70vh; overflow: auto; border: 1px solid #e2e8f0; border-radius: 8px; }
+        .badge-sifat { font-size: 0.7rem; padding: 4px 6px; }
+
+        /* ===== PWA FEEL ===== */
+        body {
+            /* Mencegah highlight biru saat tap di mobile */
+            -webkit-tap-highlight-color: transparent;
+            /* Mencegah seleksi teks tidak sengaja */
+            -webkit-user-select: none;
+            user-select: none;
+            /* Scroll yang smooth seperti app native */
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* Khusus input dan textarea tetap bisa diseleksi */
+        input, textarea, select {
+            -webkit-user-select: text;
+            user-select: text;
+        }
+
+        /* Sembunyikan scrollbar di mobile agar lebih bersih */
+        ::-webkit-scrollbar { width: 0px; }
+
+        /* Banner Install PWA */
+        #install-banner {
+            animation: slideUp 0.4s ease;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(100px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        /* ===== OFFLINE STATUS BAR ===== */
+        #offline-bar {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            background: #e53e3e;
+            color: white;
+            text-align: center;
+            padding: 8px 16px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            z-index: 99999;
+            animation: slideDown 0.3s ease;
+        }
+        #offline-bar.show { display: block; }
+        #online-bar {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            background: #38a169;
+            color: white;
+            text-align: center;
+            padding: 8px 16px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            z-index: 99999;
+            animation: slideDown 0.3s ease;
+        }
+        #online-bar.show { display: block; }
+
+        @keyframes slideDown {
+            from { transform: translateY(-40px); opacity: 0; }
+            to   { transform: translateY(0);     opacity: 1; }
+        }
+
+        /* ===== UPDATE BANNER ===== */
+        #update-banner {
+            display: none;
+            position: fixed;
+            bottom: 80px; left: 10px; right: 10px;
+            background: #2b6cb0;
+            color: white;
+            padding: 12px 16px;
+            border-radius: 12px;
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 9997;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            font-size: 0.85rem;
+            animation: slideUp 0.4s ease;
+        }
+        #update-banner.show { display: flex; }
+
+        /* ===== SYNC INDICATOR ===== */
+        #sync-indicator {
+            display: none;
+            position: fixed;
+            top: 14px; right: 14px;
+            background: rgba(49,151,149,0.9);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 50px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            z-index: 9996;
+            gap: 6px;
+            align-items: center;
+        }
+        #sync-indicator.show { display: flex; }
+        .sync-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: white;
+            animation: syncPulse 1s ease-in-out infinite;
+        }
+        @keyframes syncPulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50%       { opacity: 0.3; transform: scale(0.7); }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Loading Screen -->
+<div id="loading-overlay">
+    <div class="spinner-border text-primary" role="status"></div>
+    <span class="mt-2 fw-bold" id="loading-text">Memproses...</span>
+</div>
+
+<!-- Offline Status Bar -->
+<div id="offline-bar">📵 Tidak ada koneksi internet — Menampilkan data tersimpan</div>
+<div id="online-bar">✅ Koneksi kembali! Menyinkronkan data...</div>
+
+<!-- Update Banner (SW baru tersedia) -->
+<div id="update-banner">
+    <span>🔄 Pembaruan tersedia</span>
+    <button onclick="applyUpdate()" style="background:white;color:#2b6cb0;border:none;padding:5px 12px;border-radius:8px;font-weight:bold;cursor:pointer;">Perbarui</button>
+</div>
+
+<!-- Sync Indicator -->
+<div id="sync-indicator">
+    <div class="sync-dot"></div>
+    <span>Sinkronisasi...</span>
+</div>
+
+<!-- Main App Container -->
+<div id="app"></div>
+
+<script>
+/* ================= GLOBAL VARIABLES ================= */
+let currentUser = JSON.parse(localStorage.getItem('ch_app_user')) || null;
+let siteMapping = {}; 
+let normalDataMapping = {};
+let myChartCH = null;
+let myChartHH = null;
+let historyData = []; // Wadah penyimpan data riwayat untuk fitur Edit
+const isSimulated = typeof google === 'undefined';
+
+// Data Simulasi (Hanya aktif di Mode Preview Canvas)
+const mockUsers = [
+    { username: "DAWAM", password: "SUPER26", nama: "DAWAM", role: "MANAGER", site: "ALL" },
+    { username: "ADMIN", password: "ADMIN26", nama: "Administrator", role: "ADMIN", site: "ALL" },
+    { username: "TEMANGGUNG", password: "TMG26", nama: "Staff TMG", role: "STAFF", site: "TEMANGGUNG" },
+    { username: "MRANGGEN", password: "MRG26", nama: "Staff MRG", role: "STAFF", site: "MRANGGEN" }
+];
+const mockDB = [
+    {ID: "1", Tanggal: "2024-01-01", Site: "TEMANGGUNG", OBS: "SIN1", Data_Ombro: 95, Nilai_CH: 10.00},
+    {ID: "2", Tanggal: "2024-01-02", Site: "TEMANGGUNG", OBS: "SIN2", Data_Ombro: 47.5, Nilai_CH: 5.00}
+];
+
+/* ================= INITIALIZATION ================= */
+window.onload = function() {
+    if (isSimulated) {
+        siteMapping = { "TEMANGGUNG": ["SIN1", "SIN2"], "MADURA": ["GNG1"] };
+        normalDataMapping = { "TEMANGGUNG": [384, 336, 314, 268, 162, 92, 43, 41, 62, 165, 284, 336] };
+        checkLoginState();
+    } else {
+        google.script.run.withSuccessHandler(function(data) {
+            if (data.success && Object.keys(data.data).length > 0) siteMapping = data.data;
+            google.script.run.withSuccessHandler(function(res) {
+                if (res.success) normalDataMapping = res.data;
+                checkLoginState();
+            }).getNormalData();
+        }).getSiteSettings();
+    }
+};
+
+function startLoading(text) {
+    document.getElementById('loading-text').innerText = text || "Memproses...";
+    document.getElementById('loading-overlay').style.display = 'flex';
+}
+
+function endLoading() {
+    document.getElementById('loading-overlay').style.display = 'none';
+}
+
+function checkLoginState() {
+    if (!currentUser) renderLogin();
+    else renderMainLayout();
+}
+
+/* ================= VIEW: LOGIN ================= */
+function renderLogin() {
+    document.getElementById('app').innerHTML = `
+    <div class="container d-flex justify-content-center align-items-center" style="min-height: 100vh;">
+        <div class="card p-4 shadow-lg w-100" style="max-width: 340px;">
+            <div class="text-center mb-2">
+                <img src="https://lh3.googleusercontent.com/d/1yZzBh3-H97ujnjbWC34qGKjd8SmCdHP7" alt="Logo Aplikasi" style="max-width: 260px; margin-bottom: 5px;">
+            </div>
+            <form onsubmit="handleLogin(event)">
+                <div class="mb-2"><label class="form-label small fw-bold mb-1">User ID</label><input type="text" id="username" class="form-control" required placeholder="Contoh: ADMIN"></div>
+                <div class="mb-3"><label class="form-label small fw-bold mb-1">Password</label><input type="password" id="password" class="form-control" required></div>
+                <button type="submit" class="btn btn-primary w-100 fw-bold mt-2">MASUK</button>
+            </form>
+        </div>
+    </div>`;
+}
+
+function handleLogin(e) {
+    e.preventDefault();
+    const u = document.getElementById('username').value.trim().toUpperCase();
+    const p = document.getElementById('password').value;
+    
+    startLoading("Verifikasi...");
+    if (isSimulated) {
+        setTimeout(() => {
+            endLoading();
+            const user = mockUsers.find(x => x.username === u && x.password === p); 
+            if (user) {
+                currentUser = user;
+                localStorage.setItem('ch_app_user', JSON.stringify(user));
+                checkLoginState();
+            } else {
+                Swal.fire('Error', 'User/Password salah (Cek Mode Preview)', 'error');
+            }
+        }, 500);
+    } else {
+        google.script.run.withSuccessHandler(res => {
+            endLoading();
+            if (res.success) {
+                currentUser = res.user;
+                localStorage.setItem('ch_app_user', JSON.stringify(currentUser));
+                checkLoginState();
+            } else {
+                Swal.fire('Gagal', res.message, 'error');
+            }
+        }).loginUser({username: u, password: p});
+    }
+}
+
+function handleLogout() {
+    localStorage.removeItem('ch_app_user');
+    currentUser = null;
+    checkLoginState();
+}
+
+/* ================= VIEW: MAIN LAYOUT ================= */
+function renderMainLayout() {
+    const allMenus = [
+        { id: 'dashboard', title: 'Dashboard', icon: 'fas fa-chart-line', roles: ['ADMIN','MANAGER','STAFF'] },
+        { id: 'input', title: 'Input Data', icon: 'fas fa-edit', roles: ['ADMIN','STAFF'] },
+        { id: 'history', title: 'Riwayat', icon: 'fas fa-history', roles: ['ADMIN','STAFF'] },
+        { id: 'recap', title: 'Rekapitulasi', icon: 'fas fa-table', roles: ['ADMIN','MANAGER','STAFF'] },
+        { id: 'obs', title: 'Kelola OBS', icon: 'fas fa-map-marked-alt', roles: ['ADMIN'] },
+        { id: 'normals', title: 'Data Normal', icon: 'fas fa-cloud-sun', roles: ['ADMIN'] },
+        { id: 'users', title: 'Kelola User', icon: 'fas fa-users', roles: ['ADMIN'] }
+    ];
+    
+    const myMenus = allMenus.filter(m => m.roles.includes(currentUser.role));
+    
+    let navHTML = myMenus.map(m => 
+        `<a href="#" class="nav-link" id="nav-${m.id}" onclick="switchMenu('${m.id}')"><i class="${m.icon} me-2"></i> ${m.title}</a>`
+    ).join('');
+
+    let mobileNavHTML = myMenus.slice(0, 4).map(m => 
+        `<a href="#" class="text-dark text-center text-decoration-none" onclick="switchMenu('${m.id}')" style="width: 25%">
+            <div class="fs-5"><i class="${m.icon}"></i></div><div style="font-size: 10px">${m.title.split(' ')[0]}</div>
+        </a>`
+    ).join('');
+
+    document.getElementById('app').innerHTML = `
+    <div class="container-fluid p-0">
+                <div class="d-md-none glass-mobile-top p-3 d-flex justify-content-between align-items-center sticky-top shadow-sm" style="color: #2d3748;">
+            <img src="https://lh3.googleusercontent.com/d/1yZzBh3-H97ujnjbWC34qGKjd8SmCdHP7" alt="Logo" style="max-height: 35px; padding: 3px; border-radius: 5px;">
+            <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="handleLogout()">LOGOUT</button>
+        </div>
+
+        <div class="row g-0">
+                        <nav class="sidebar d-none d-md-flex flex-column">
+                <div class="text-center px-3 mb-4">
+                    <img src="https://lh3.googleusercontent.com/d/1yZzBh3-H97ujnjbWC34qGKjd8SmCdHP7" alt="Logo" style="max-width: 220px; width: 85%; display: block; margin: 0 auto 15px auto;">
+                    <div><span class="badge bg-secondary shadow-sm">${currentUser.site}</span></div>
+                </div>
+                <div class="flex-grow-1">${navHTML}</div>
+                <div class="px-3 mt-auto">
+                    <hr>
+                    <div class="small text-muted mb-2 text-truncate">${currentUser.nama}</div>
+                    <button class="btn btn-outline-danger w-100 btn-sm fw-bold" onclick="handleLogout()">LOGOUT</button>
+                </div>
+            </nav>
+
+                        <main class="main-content" id="main-content"></main>
+        </div>
+
+                <div class="d-md-none glass-mobile-nav fixed-bottom d-flex justify-content-around py-2 shadow-lg" style="z-index: 1000;">${mobileNavHTML}</div>
+    </div>`;
+
+    switchMenu('dashboard');
+}
+
+function switchMenu(menuId) {
+    document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+    const navEl = document.getElementById('nav-' + menuId);
+    if(navEl) navEl.classList.add('active');
+
+    const container = document.getElementById('main-content');
+    container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div></div>';
+
+    setTimeout(() => {
+        if (menuId === 'dashboard') renderDashboard(container);
+        else if (menuId === 'input') renderInput(container);
+        else if (menuId === 'history') renderHistory(container);
+        else if (menuId === 'recap') renderRecap(container);
+        else if (menuId === 'users') renderUsers(container);
+        else if (menuId === 'obs') renderObsManagement(container);
+        else if (menuId === 'normals') renderNormalDataManagement(container);
+    }, 100);
+}
+
+/* ================= VIEW: DASHBOARD ================= */
+function renderDashboard(container) {
+    const isAdminManager = ['ADMIN', 'MANAGER'].includes(currentUser.role);
+    const sites = Object.keys(siteMapping);
+    const year = new Date().getFullYear();
+
+    container.innerHTML = `
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <div><h4 class="mb-0">Dashboard</h4><small class="text-muted">Site: ${currentUser.site}</small></div>
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+            <select id="dash-year" class="form-select form-select-sm w-auto" onchange="refreshDashboardData()">
+                <option value="${year}">${year}</option><option value="${year-1}">${year-1}</option>
+            </select>
+            <select id="dash-period" class="form-select form-select-sm w-auto" onchange="refreshDashboardData()">
+                <option value="MONTHLY">Bulanan</option><option value="DASARIAN">Dasarian</option><option value="WEEKLY">Mingguan</option>
+            </select>
+            ${isAdminManager ? `<select id="dash-site-filter" class="form-select form-select-sm w-auto" onchange="refreshDashboardData()"><option value="ALL">Semua Site</option>${sites.map(s => `<option value="${s}">${s}</option>`).join('')}</select>` : ''}
+            <button class="btn btn-info text-white btn-sm fw-bold" onclick="downloadPNG()"><i class="fas fa-image me-1"></i> PNG</button>
+        </div>
+    </div>
+    <div id="dashboard-print">
+        <div class="row g-4">
+            <div class="col-12"><div class="card p-3" style="height: 350px;"><h6 class="text-primary fw-bold">Grafik Curah Hujan (CH)</h6><div style="position:relative; height:100%"><canvas id="chartCH"></canvas></div></div></div>
+            <div class="col-12"><div class="card p-3" style="height: 350px;"><h6 class="text-success fw-bold">Grafik Hari Hujan (HH)</h6><div style="position:relative; height:100%"><canvas id="chartHH"></canvas></div></div></div>
+        </div>
+    </div>`;
+    refreshDashboardData();
+}
+
+function refreshDashboardData() {
+    const filterSite = (currentUser.role === 'STAFF') ? currentUser.site : (document.getElementById('dash-site-filter')?.value || 'ALL');
+    const filterYear = parseInt(document.getElementById('dash-year').value);
+    const filterPeriod = document.getElementById('dash-period').value;
+
+    fetchData(data => {
+        const filtered = data.filter(d => {
+            const dt = new Date(d.Tanggal);
+            return dt.getFullYear() === filterYear && (filterSite === 'ALL' || d.Site === filterSite);
+        });
+        updateCharts(filtered, filterPeriod, filterSite);
+    });
+}
+
+function updateCharts(data, period, site) {
+    let labels = [], chData = [], hhData = [];
+    const months = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
+
+    // MENGHITUNG JUMLAH OBS UNTUK PEMBAGI RATA-RATA
+    const obsList = (site === 'ALL') ? [...new Set(data.map(d => d.OBS))] : (siteMapping[site] || []);
+    const obsCount = obsList.length > 0 ? obsList.length : 1;
+
+    if (period === 'MONTHLY') {
+        labels = months;
+        chData = new Array(12).fill(0); hhData = new Array(12).fill(0);
+        data.forEach(d => {
+            const m = new Date(d.Tanggal).getMonth();
+            const v = parseFloat(d.Nilai_CH);
+            chData[m] += v;
+            if(v > 0.5) hhData[m]++;
+        });
+    } else if (period === 'DASARIAN') {
+        months.forEach(m => labels.push(`${m}-1`, `${m}-2`, `${m}-3`));
+        chData = new Array(36).fill(0); hhData = new Array(36).fill(0);
+        data.forEach(d => {
+            const dt = new Date(d.Tanggal);
+            const m = dt.getMonth();
+            const day = dt.getDate();
+            let dIdx = 2; 
+            if(day <= 10) dIdx = 0; else if(day <= 20) dIdx = 1;
+            const idx = (m * 3) + dIdx;
+            chData[idx] += parseFloat(d.Nilai_CH);
+            if(parseFloat(d.Nilai_CH) > 0.5) hhData[idx]++;
+        });
+    } else { // WEEKLY
+        months.forEach(m => labels.push(`${m}-1`, `${m}-2`, `${m}-3`, `${m}-4`));
+        chData = new Array(48).fill(0); hhData = new Array(48).fill(0);
+        data.forEach(d => {
+            const dt = new Date(d.Tanggal);
+            const m = dt.getMonth();
+            const day = dt.getDate();
+            let wIdx = 3; 
+            if(day <= 7) wIdx = 0; else if(day <= 14) wIdx = 1; else if(day <= 21) wIdx = 2;
+            const idx = (m * 4) + wIdx;
+            chData[idx] += parseFloat(d.Nilai_CH);
+            if(parseFloat(d.Nilai_CH) > 0.5) hhData[idx]++;
+        });
+    }
+
+    // UBAH TOTAL MENJADI RATA-RATA (dibagi jumlah OBS, dibulatkan proporsional mutlak tanpa koma)
+    chData = chData.map(val => Math.round(val / obsCount));
+    hhData = hhData.map(val => Math.round(val / obsCount));
+
+    if (myChartCH) myChartCH.destroy();
+    if (myChartHH) myChartHH.destroy();
+
+    // Chart CH with Normal Data Line
+    let chDatasets = [{ label: 'CH Aktual (Rata-rata)', data: chData, borderColor: '#319795', backgroundColor: 'rgba(49, 151, 149, 0.1)', fill: true, tension: 0.3 }];
+    if (period === 'MONTHLY' && site !== 'ALL' && normalDataMapping[site]) {
+        chDatasets.push({ label: 'Normal 30Th', data: normalDataMapping[site], borderColor: '#d69e2e', borderDash: [5,5], pointRadius: 0, fill: false });
+    }
+
+    // Pengaturan untuk label angka di atas titik/batang grafik
+    const labelOptions = {
+        maintainAspectRatio: false,
+        plugins: {
+            datalabels: {
+                color: '#444',
+                anchor: 'end',
+                align: 'top',
+                offset: 2,
+                font: { weight: 'bold', size: 10 },
+                formatter: function(value) { return value; }
+            }
+        }
+    };
+
+    myChartCH = new Chart(document.getElementById('chartCH'), { 
+        type: 'line', 
+        plugins: [ChartDataLabels],
+        data: { labels, datasets: chDatasets }, 
+        options: labelOptions 
+    });
+    
+    myChartHH = new Chart(document.getElementById('chartHH'), { 
+        type: 'bar', 
+        plugins: [ChartDataLabels],
+        data: { labels, datasets: [{ label: 'Hari Hujan (Rata-rata)', data: hhData, backgroundColor: '#4fd1c5' }] }, 
+        options: labelOptions 
+    });
+}
+
+function downloadPNG() {
+    const el = document.getElementById('dashboard-print');
+    startLoading("Generate PNG...");
+    
+    const filterSite = (currentUser.role === 'STAFF') ? currentUser.site : (document.getElementById('dash-site-filter')?.value || 'ALL');
+    const siteName = (filterSite === 'ALL') ? 'Semua Site' : filterSite;
+    const timestamp = new Date().toLocaleString('id-ID');
+
+    const titleDiv = document.createElement('h4');
+    titleDiv.style.textAlign = 'center';
+    titleDiv.style.fontWeight = 'bold';
+    titleDiv.style.marginBottom = '15px';
+    titleDiv.innerText = `Data Curah Hujan TNCF Site ${siteName}`;
+
+    const footerDiv = document.createElement('div');
+    footerDiv.style.textAlign = 'center';
+    footerDiv.style.marginTop = '15px';
+    footerDiv.style.fontSize = '12px';
+    footerDiv.style.color = '#555';
+    footerDiv.innerText = `TNCF Rainfall Monitor | ${siteName} | ${timestamp}`;
+
+    el.insertBefore(titleDiv, el.firstChild);
+    el.appendChild(footerDiv);
+
+    window.scrollTo(0, 0);
+
+    const originalCSS = el.style.cssText;
+    
+    el.style.width = '1120px';
+    el.style.maxWidth = '1120px';
+    el.style.padding = '20px';
+    el.style.backgroundColor = '#ffffff';
+
+    // Untuk PNG, kita tidak perlu mengecilkan tinggi grafik karena tidak dibatasi kertas A4
+    // Jadi grafik tetap menggunakan tinggi aslinya agar lebih jelas
+
+    if (myChartCH) myChartCH.resize();
+    if (myChartHH) myChartHH.resize();
+
+    setTimeout(() => {
+        html2canvas(el, { 
+            scale: 2, 
+            useCORS: true, 
+            width: 1120,
+            scrollY: 0,
+            scrollX: 0,
+            backgroundColor: '#ffffff'
+        }).then(canvas => {
+            // Konversi canvas ke format PNG
+            const imgData = canvas.toDataURL('image/png');
+            
+            // Buat link download
+            const link = document.createElement('a');
+            link.download = `Dashboard_CH_${filterSite}.png`;
+            link.href = imgData;
+            link.click();
+
+            // Kembalikan ke tampilan semula
+            el.removeChild(titleDiv);   
+            el.removeChild(footerDiv);  
+            el.style.cssText = originalCSS; 
+            
+            if (myChartCH) myChartCH.resize();
+            if (myChartHH) myChartHH.resize();
+            
+            endLoading();
+        });
+    }, 1000);
+}
+
+/* ================= VIEW: REKAPITULASI (DENGAN TOMBOL EXCEL) ================= */
+function renderRecap(container) {
+    const isAdminManager = ['ADMIN', 'MANAGER'].includes(currentUser.role);
+    const sites = Object.keys(siteMapping);
+    const year = new Date().getFullYear();
+    
+    container.innerHTML = `
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <h4 class="mb-0">Rekapitulasi</h4>
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+            <select id="rec-year" class="form-select form-select-sm w-auto" onchange="refreshRecapTable()"><option value="${year}">${year}</option><option value="${year-1}">${year-1}</option></select>
+            ${isAdminManager ? `<select id="rec-site" class="form-select form-select-sm w-auto" onchange="refreshRecapTable()"><option value="ALL">Semua Site</option>${sites.map(s => `<option value="${s}">${s}</option>`).join('')}</select>` : ''}
+            <select id="rec-type" class="form-select form-select-sm w-auto" onchange="refreshRecapTable()">
+                <option value="CH_MONTH">CH Bulanan</option><option value="CH_DAS">CH Dasarian</option><option value="CH_WEEK">CH Mingguan</option>
+                <option value="HH_MONTH">HH Bulanan</option><option value="HH_DAS">HH Dasarian</option><option value="HH_WEEK">HH Mingguan</option>
+            </select>
+            <button class="btn btn-success btn-sm fw-bold" onclick="downloadExcel()"><i class="fas fa-file-excel me-1"></i> Excel</button>
+        </div>
+    </div>
+    <div class="card p-0 shadow-sm overflow-hidden" id="recap-card"><div class="p-5 text-center text-muted">Memuat data...</div></div>`;
+    refreshRecapTable();
+}
+
+function refreshRecapTable() {
+    const filterSite = (currentUser.role === 'STAFF') ? currentUser.site : (document.getElementById('rec-site')?.value || 'ALL');
+    const filterYear = parseInt(document.getElementById('rec-year').value);
+    const filterType = document.getElementById('rec-type').value;
+
+    startLoading("Mengolah Data...");
+    fetchData(data => {
+        let filtered = data.filter(d => {
+            const dt = new Date(d.Tanggal);
+            return dt.getFullYear() === filterYear && (filterSite === 'ALL' || d.Site === filterSite);
+        });
+        const obsList = (filterSite === 'ALL') ? [...new Set(filtered.map(d => d.OBS))].sort() : (siteMapping[filterSite] || []);
+        document.getElementById('recap-card').innerHTML = generateTableHTML(filtered, obsList, filterType, filterSite);
+        endLoading();
+    });
+}
+
+function generateTableHTML(data, obsList, type, site) {
+    const isCH = type.includes('CH');
+    const isMonth = type.includes('MONTH');
+    const isWeek = type.includes('WEEK');
+    const months = ["JAN","FEB","MAR","APR","MEI","JUN","JUL","AGS","SEP","OKT","NOP","DES"];
+    
+    let cols = isMonth ? 12 : (isWeek ? 48 : 36);
+    let colSums = new Array(cols).fill(0);
+    
+    let rowsHTML = obsList.map(obs => {
+        let rowData = new Array(cols).fill(0);
+        data.filter(d => d.OBS === obs).forEach(d => {
+            const dt = new Date(d.Tanggal), m = dt.getMonth(), day = dt.getDate();
+            const val = parseFloat(d.Nilai_CH);
+            let idx = 0;
+            if (isMonth) idx = m;
+            else if (isWeek) { let w=3; if(day<=7)w=0; else if(day<=14)w=1; else if(day<=21)w=2; idx=m*4+w; }
+            else { let das=2; if(day<=10)das=0; else if(day<=20)das=1; idx=m*3+das; }
+            
+            if (isCH) rowData[idx] += val; else if (val > 0.5) rowData[idx]++;
+        });
+        rowData.forEach((v, i) => colSums[i] += v);
+        const cells = rowData.map(v => `<td>${isCH ? Math.round(v) : v}</td>`).join('');
+        return `<tr><td class="col-obs">${obs}</td>${cells}</tr>`;
+    }).join('');
+
+    // Rata-rata Aktual
+    const avgActual = colSums.map(sum => obsList.length > 0 ? sum / obsList.length : 0);
+    const rowActual = `<tr class="row-calc"><td class="col-obs">Rata-rata Aktual</td>${avgActual.map(v => `<td>${Math.round(v)}</td>`).join('')}</tr>`;
+
+    let analysisHTML = '';
+    let footerLegend = '';
+
+    if (isCH && isMonth && site !== 'ALL' && normalDataMapping[site]) {
+        const normals = normalDataMapping[site];
+        const diff = avgActual.map((v, i) => v - normals[i]);
+        const sifat = avgActual.map((v, i) => {
+            const n = normals[i];
+            if (n === 0) return '-';
+            const pct = (v / n) * 100;
+            return pct > 115 ? '<span class="badge bg-primary badge-sifat">AN</span>' : (pct < 85 ? '<span class="badge bg-warning text-dark badge-sifat">BN</span>' : '<span class="badge bg-success badge-sifat">N</span>');
+        });
+
+        analysisHTML = `
+            <tr class="row-ref"><td class="col-obs">Normal 30Th</td>${normals.map(v => `<td>${v}</td>`).join('')}</tr>
+            ${rowActual}
+            <tr class="table-group-divider"><td colspan="${cols+1}" class="bg-light text-center small fw-bold">DATA PER OBS</td></tr>
+            ${rowsHTML}
+            <tr class="table-group-divider"><td class="col-obs">Selisih</td>${diff.map(v => `<td>${Math.round(v)}</td>`).join('')}</tr>
+            <tr class="row-result"><td class="col-obs">Sifat Hujan</td>${sifat.map(v => `<td>${v}</td>`).join('')}</tr>`;
+        footerLegend = `<div class="p-2 small text-muted border-top"><span class="badge bg-primary">AN</span> Atas Normal (>115%) <span class="badge bg-success">N</span> Normal <span class="badge bg-warning text-dark">BN</span> Bawah Normal (<85%)</div>`;
+    } else {
+        analysisHTML = `${rowActual}<tr class="table-group-divider"><td colspan="${cols+1}" class="bg-light text-center small fw-bold">DATA PER OBS</td></tr>${rowsHTML}`;
+    }
+
+    // Headers
+    let subHeader = '';
+    if (isWeek) subHeader = `<tr>${months.map(m => `<th>1</th><th>2</th><th>3</th><th>4</th>`).join('')}</tr>`;
+    else if (!isMonth) subHeader = `<tr>${months.map(m => `<th>1</th><th>2</th><th>3</th>`).join('')}</tr>`;
+
+    return `
+    <div class="scroll-container">
+        <table class="table table-bordered table-recap mb-0" id="table-export">
+            <thead>
+                <tr><th rowspan="${isMonth ? 1 : 2}" style="min-width:100px">KODE</th>${months.map(m => `<th colspan="${isMonth ? 1 : (isWeek ? 4 : 3)}">${m}</th>`).join('')}</tr>
+                ${isMonth ? '' : subHeader}
+            </thead>
+            <tbody>${analysisHTML}</tbody>
+        </table>
+    </div>${footerLegend}`;
+}
+
+function downloadExcel() {
+    const table = document.getElementById('table-export');
+    if (!table) return Swal.fire('Error', 'Tabel kosong', 'error');
+    const wb = XLSX.utils.table_to_book(table, {sheet: "Rekap"});
+    XLSX.writeFile(wb, `Rekap_CH_${currentUser.site}.xlsx`);
+}
+
+/* ================= VIEW: OTHER MENUS ================= */
+function renderInput(c) {
+    const sites = Object.keys(siteMapping);
+    c.innerHTML = `<div class="card p-4 mx-auto shadow-sm" style="max-width: 500px;"><h5 class="mb-3">Input Data Hujan</h5><form onsubmit="handleInput(event)"><div class="mb-2"><label>Site</label><select id="f-site" class="form-select" onchange="upObs()" ${currentUser.role==='STAFF'?'disabled':''}>${sites.map(s => `<option value="${s}" ${currentUser.site===s?'selected':''}>${s}</option>`).join('')}</select></div><div class="mb-2"><label>OBS</label><select id="f-obs" class="form-select" required></select></div><div class="mb-2"><label>Tanggal</label><input type="date" id="f-date" class="form-control" value="${new Date().toISOString().split('T')[0]}" required></div><div class="mb-3"><label>Data Ombro (mm)</label><input type="number" step="0.01" id="f-ombro" class="form-control" required></div><button type="submit" class="btn btn-primary w-100">SIMPAN</button></form></div>`;
+    upObs();
+}
+function upObs() {
+    const s = document.getElementById('f-site').value;
+    const obs = siteMapping[s] || [];
+    document.getElementById('f-obs').innerHTML = obs.map(o => `<option value="${o}">${o}</option>`).join('');
+}
+function handleInput(e) {
+    e.preventDefault();
+    const p = { site: document.getElementById('f-site').value, obs: document.getElementById('f-obs').value, tanggal: document.getElementById('f-date').value, ombro: document.getElementById('f-ombro').value, userInput: currentUser.nama };
+    startLoading();
+    if (isSimulated) { setTimeout(() => { endLoading(); mockDB.push({...p, ID:Date.now(), Nilai_CH:Math.round(p.ombro/95*10)}); Swal.fire('Sukses','(Simulasi)','success'); }, 500); }
+    else google.script.run.withSuccessHandler(res => { endLoading(); if(res.success) Swal.fire('Berhasil','Data tersimpan','success'); else Swal.fire('Gagal',res.message,'error'); }).saveRainfallData(p);
+}
+
+function renderHistory(c) {
+    c.innerHTML = `<h5>Riwayat Data</h5><div class="card overflow-auto"><table class="table table-hover mb-0"><thead><tr><th>Tgl</th><th>Site</th><th>OBS</th><th>CH</th><th>Aksi</th></tr></thead><tbody id="h-body"></tbody></table></div>`;
+    fetchData(d => {
+        historyData = d;
+        document.getElementById('h-body').innerHTML = d.map(x => `<tr><td>${x.Tanggal}</td><td>${x.Site}</td><td>${x.OBS}</td><td>${x.Nilai_CH}</td><td>
+            <button class="btn btn-sm btn-warning me-1" onclick="editData('${x.ID}')">Edit</button>
+            <button class="btn btn-sm btn-danger" onclick="delData('${x.ID}')">Hapus</button>
+        </td></tr>`).join('');
+    });
+}
+function editData(id) {
+    const row = historyData.find(x => x.ID == id);
+    if (!row) return;
+
+    const obsOptions = (siteMapping[row.Site] || []).map(o => `<option value="${o}" ${o === row.OBS ? 'selected' : ''}>${o}</option>`).join('');
+
+    Swal.fire({
+        title: 'Edit Data Hujan',
+        html: `
+            <div class="mb-2 text-start"><label class="small fw-bold">Tanggal</label><input type="date" id="e-date" class="form-control" value="${row.Tanggal}"></div>
+            <div class="mb-2 text-start"><label class="small fw-bold">Site</label><input type="text" id="e-site" class="form-control" value="${row.Site}" readonly></div>
+            <div class="mb-2 text-start"><label class="small fw-bold">OBS</label><select id="e-obs" class="form-select">${obsOptions}</select></div>
+            <div class="mb-3 text-start"><label class="small fw-bold">Data Ombro (mm)</label><input type="number" step="0.01" id="e-ombro" class="form-control" value="${row.Data_Ombro}"></div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'Simpan Perubahan',
+        preConfirm: () => {
+            return {
+                isEdit: true,
+                id: row.ID,
+                site: document.getElementById('e-site').value,
+                obs: document.getElementById('e-obs').value,
+                tanggal: document.getElementById('e-date').value,
+                ombro: document.getElementById('e-ombro').value,
+                userInput: currentUser.nama
+            }
+        }
+    }).then(r => {
+        if (r.isConfirmed) {
+            startLoading("Menyimpan...");
+            if (isSimulated) {
+                setTimeout(() => {
+                    const idx = mockDB.findIndex(x => x.ID == r.value.id);
+                    if (idx !== -1) mockDB[idx] = { ...mockDB[idx], Tanggal: r.value.tanggal, OBS: r.value.obs, Data_Ombro: r.value.ombro, Nilai_CH: Math.round(r.value.ombro / 95 * 10) };
+                    endLoading(); Swal.fire('Sukses', '(Simulasi)', 'success'); switchMenu('history');
+                }, 500);
+            } else {
+                google.script.run.withSuccessHandler(res => {
+                    endLoading();
+                    if (res.success) { 
+                        Swal.fire('Berhasil', 'Data berhasil diperbarui', 'success'); 
+                        switchMenu('history');
+                    } 
+                    else { Swal.fire('Gagal', res.message, 'error'); }
+                }).saveRainfallData(r.value);
+            }
+        }
+    });
+}
+
+function renderUsers(c) {
+    c.innerHTML = `<div class="d-flex justify-content-between mb-4"><h5>Kelola User</h5><button class="btn btn-primary btn-sm" onclick="showUserForm()">+ Tambah</button></div><div class="card"><table class="table table-hover mb-0"><thead><tr><th>User</th><th>Nama</th><th>Role</th><th>Aksi</th></tr></thead><tbody id="u-list"></tbody></table></div>`;
+    google.script.run.withSuccessHandler(r => document.getElementById('u-list').innerHTML=r.data.map(u=>`<tr><td>${u.username}</td><td>${u.nama}</td><td>${u.role}</td><td><button class="btn btn-sm btn-danger" onclick="delUser('${u.username}')">Hapus</button></td></tr>`).join('')).getUsersList();
+}
+function delUser(u) { google.script.run.withSuccessHandler(()=>switchMenu('users')).deleteUser(u); }
+function showUserForm(u=null) {
+    const isEdit=!!u;
+    Swal.fire({title:isEdit?'Edit':'Tambah', html:`<input id="u-user" class="form-control mb-2" placeholder="Username" value="${u?u.username:''}"><input id="u-pass" class="form-control mb-2" placeholder="Password"><input id="u-nama" class="form-control mb-2" placeholder="Nama" value="${u?u.nama:''}"><select id="u-role" class="form-select mb-2"><option value="STAFF">STAFF</option><option value="MANAGER">MANAGER</option><option value="ADMIN">ADMIN</option></select><select id="u-site" class="form-select"><option value="ALL">ALL</option>${Object.keys(siteMapping).map(s=>`<option value="${s}">${s}</option>`).join('')}</select>`, showCancelButton:true, preConfirm:()=>{ return {isEdit, oldUsername:u?u.username:'', username:document.getElementById('u-user').value, password:document.getElementById('u-pass').value, nama:document.getElementById('u-nama').value, role:document.getElementById('u-role').value, site:document.getElementById('u-site').value}} }).then(r=>{ if(r.isConfirmed) { startLoading(); google.script.run.withSuccessHandler(()=>{endLoading();switchMenu('users')}).saveUser(r.value); } });
+}
+
+function renderObsManagement(c) {
+    const sites = Object.keys(siteMapping);
+    c.innerHTML = `<div class="d-flex justify-content-between mb-4"><h5>Kelola OBS</h5><button class="btn btn-primary btn-sm" onclick="showObsForm()">+ Tambah Site</button></div><div class="card"><table class="table table-hover mb-0"><thead><tr><th>Site</th><th>OBS</th><th>Aksi</th></tr></thead><tbody id="obs-list">${sites.map(s=>`<tr><td>${s}</td><td>${siteMapping[s].join(', ')}</td><td><button class="btn btn-sm btn-danger" onclick="delSite('${s}')">Hapus</button></td></tr>`).join('')}</tbody></table></div>`;
+}
+function showObsForm(s=null) {
+    Swal.fire({title:s?'Edit':'Tambah', html:`<input id="o-site" class="form-control mb-2" placeholder="Nama Site" value="${s||''}" ${s?'readonly':''}><textarea id="o-obs" class="form-control" placeholder="OBS (Pisahkan koma)">${s?siteMapping[s].join(','):''}</textarea>`, showCancelButton:true, preConfirm:()=>{ return {oldSiteName:s, site:document.getElementById('o-site').value.trim().toUpperCase(), obs:document.getElementById('o-obs').value.trim()} } }).then(r=>{ if(r.isConfirmed) { startLoading(); google.script.run.withSuccessHandler(()=>{ google.script.run.withSuccessHandler(d=>{siteMapping=d.data; endLoading(); switchMenu('obs')}).getSiteSettings(); }).saveSiteSetting(r.value); } });
+}
+function delSite(s) { google.script.run.withSuccessHandler(()=>{ google.script.run.withSuccessHandler(d=>{siteMapping=d.data; switchMenu('obs')}).getSiteSettings(); }).deleteSiteSetting(s); }
+
+function renderNormalDataManagement(c) {
+    const sites = Object.keys(siteMapping);
+    c.innerHTML = `<div class="card p-4"><h5>Data Normal 30 Tahun</h5><select id="nd-site" class="form-select mb-3" onchange="loadND()"><option value="">-- Pilih Site --</option>${sites.map(s=>`<option value="${s}">${s}</option>`).join('')}</select><div id="nd-inputs" class="row g-2"></div><button class="btn btn-primary mt-3" onclick="saveND()">Simpan</button></div>`;
+}
+function loadND() {
+    const s = document.getElementById('nd-site').value;
+    const v = normalDataMapping[s] || new Array(12).fill(0);
+    document.getElementById('nd-inputs').innerHTML = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"].map((m,i)=>`<div class="col-3"><label class="small">${m}</label><input type="number" class="form-control form-control-sm nd-val" value="${v[i]}"></div>`).join('');
+}
+function saveND() {
+    const s = document.getElementById('nd-site').value;
+    const v = Array.from(document.querySelectorAll('.nd-val')).map(i=>parseFloat(i.value));
+    startLoading();
+    google.script.run.withSuccessHandler(res => { endLoading(); if(res.success){ normalDataMapping[s]=v; Swal.fire('Berhasil','','success'); } }).saveNormalData({site:s, values:v});
+}
+
+function fetchData(cb) {
+    if (isSimulated) cb(currentUser.role==='STAFF' ? mockDB.filter(d=>d.Site===currentUser.site) : mockDB);
+    else google.script.run.withSuccessHandler(res => { if(res.success) cb(res.data); }).getRainfallData(currentUser.role, currentUser.site);
+}
+
+/* ===== PWA INSTALL BANNER ===== */
+let deferredPrompt;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    showInstallBanner();
+});
+
+function showInstallBanner() {
+    // Jangan tampilkan kalau sudah pernah di-dismiss
+    if (localStorage.getItem('pwa_dismissed')) return;
+    
+    const banner = document.createElement('div');
+    banner.id = 'install-banner';
+    banner.innerHTML = `
+        <div style="
+            position: fixed; bottom: 70px; left: 10px; right: 10px; 
+            background: #319795; color: white; padding: 12px 16px; 
+            border-radius: 12px; display: flex; align-items: center; 
+            justify-content: space-between; z-index: 9998;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); font-size: 0.85rem;
+        ">
+            <span>📲 Install app Curah Hujan di HP kamu?</span>
+            <div>
+                <button onclick="installPWA()" style="
+                    background: white; color: #319795; border: none; 
+                    padding: 5px 12px; border-radius: 8px; font-weight: bold; 
+                    margin-right: 6px; cursor: pointer;
+                ">Install</button>
+                <button onclick="dismissBanner()" style="
+                    background: transparent; color: white; border: 1px solid white; 
+                    padding: 5px 10px; border-radius: 8px; cursor: pointer;
+                ">✕</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(banner);
+}
+
+function installPWA() {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(choice => {
+        if (choice.outcome === 'accepted') {
+            console.log('PWA berhasil diinstall!');
+        }
+        deferredPrompt = null;
+        dismissBanner();
+    });
+}
+
+function dismissBanner() {
+    localStorage.setItem('pwa_dismissed', '1');
+    const b = document.getElementById('install-banner');
+    if (b) b.remove();
+}
+
+window.addEventListener('appinstalled', () => {
+    console.log('[PWA] App berhasil diinstall');
+    dismissBanner();
+});
+
+/* ===== SERVICE WORKER REGISTRATION ===== */
+let swRegistration = null;
+let newWorker = null;
+
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js', { scope: './' })
+            .then(reg => {
+                swRegistration = reg;
+                console.log('[PWA] Service Worker terdaftar:', reg.scope);
+
+                // Cek update saat SW baru tersedia
+                reg.addEventListener('updatefound', () => {
+                    newWorker = reg.installing;
+                    newWorker.addEventListener('statechange', () => {
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            // Ada versi baru — tampilkan banner update
+                            document.getElementById('update-banner').classList.add('show');
+                        }
+                    });
+                });
+
+                // Cek update periodik (setiap 30 menit)
+                setInterval(() => reg.update(), 30 * 60 * 1000);
+            })
+            .catch(err => console.warn('[PWA] SW gagal didaftarkan:', err));
+
+        // Reload otomatis setelah SW diaktifkan
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (window._pwaUpdating) window.location.reload();
+        });
+
+        // Terima pesan dari SW (misal: sync data pending)
+        navigator.serviceWorker.addEventListener('message', event => {
+            if (event.data?.type === 'SYNC_PENDING_DATA') {
+                syncPendingDataFromSW();
+            }
+        });
+    });
+}
+
+function applyUpdate() {
+    if (newWorker) {
+        window._pwaUpdating = true;
+        newWorker.postMessage({ action: 'skipWaiting' });
+    }
+    document.getElementById('update-banner').classList.remove('show');
+}
+
+/* ===== OFFLINE / ONLINE DETECTION ===== */
+function showOfflineBar() {
+    document.getElementById('offline-bar').classList.add('show');
+    document.getElementById('online-bar').classList.remove('show');
+}
+
+function showOnlineBar() {
+    document.getElementById('offline-bar').classList.remove('show');
+    const onlineBar = document.getElementById('online-bar');
+    onlineBar.classList.add('show');
+    // Sembunyikan bar online setelah 3 detik
+    setTimeout(() => onlineBar.classList.remove('show'), 3000);
+}
+
+window.addEventListener('offline', showOfflineBar);
+window.addEventListener('online', () => {
+    showOnlineBar();
+    syncPendingDataFromSW();
+});
+
+// Set status awal saat load
+if (!navigator.onLine) showOfflineBar();
+
+/* ===== OFFLINE DATA QUEUE ===== */
+// Simpan data pending di localStorage saat offline
+function queueOfflineData(payload) {
+    let queue = JSON.parse(localStorage.getItem('ch_offline_queue') || '[]');
+    queue.push({ ...payload, _queuedAt: new Date().toISOString() });
+    localStorage.setItem('ch_offline_queue', JSON.stringify(queue));
+    console.log('[PWA] Data diantrekan untuk sync:', queue.length, 'item');
+
+    // Daftarkan background sync jika browser mendukung
+    if ('serviceWorker' in navigator && 'SyncManager' in window) {
+        navigator.serviceWorker.ready.then(reg => {
+            reg.sync.register('sync-rainfall-data').catch(err => console.warn('Sync register gagal:', err));
+        });
+    }
+}
+
+function syncPendingDataFromSW() {
+    if (isSimulated) return;
+    const queue = JSON.parse(localStorage.getItem('ch_offline_queue') || '[]');
+    if (queue.length === 0) return;
+
+    console.log('[PWA] Menyinkronkan', queue.length, 'data pending...');
+    const syncBar = document.getElementById('sync-indicator');
+    syncBar.classList.add('show');
+
+    let processed = 0;
+    queue.forEach((payload, idx) => {
+        google.script.run
+            .withSuccessHandler(() => {
+                processed++;
+                const newQueue = JSON.parse(localStorage.getItem('ch_offline_queue') || '[]')
+                    .filter(item => item._queuedAt !== payload._queuedAt);
+                localStorage.setItem('ch_offline_queue', JSON.stringify(newQueue));
+                if (processed === queue.length) {
+                    syncBar.classList.remove('show');
+                    Swal.fire('Sinkronisasi Selesai', `${processed} data berhasil dikirim.`, 'success');
+                }
+            })
+            .withFailureHandler(() => { processed++; if (processed === queue.length) syncBar.classList.remove('show'); })
+            .saveRainfallData(payload);
+    });
+}
+
+// Override handleInput agar support offline queue
+const _origHandleInput = handleInput;
+function handleInputWithOffline(e) {
+    e.preventDefault();
+    const p = { site: document.getElementById('f-site').value, obs: document.getElementById('f-obs').value, tanggal: document.getElementById('f-date').value, ombro: document.getElementById('f-ombro').value, userInput: currentUser.nama };
+    
+    if (!navigator.onLine && !isSimulated) {
+        queueOfflineData(p);
+        Swal.fire('Tersimpan Lokal', 'Data akan dikirim otomatis saat koneksi kembali.', 'info');
+        return;
+    }
+    _origHandleInput(e);
+}
+</script>
+</body>
+</html>
