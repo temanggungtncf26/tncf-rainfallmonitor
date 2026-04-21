@@ -19,14 +19,14 @@ const SHELL_ASSETS = [
   BASE + 'index.html',
   BASE + 'offline.html',
   BASE + 'manifest.json',
-  BASE + 'icon-72.png',
-  BASE + 'icon-96.png',
-  BASE + 'icon-128.png',
-  BASE + 'icon-144.png',
-  BASE + 'icon-152.png',
-  BASE + 'icon-192.png',
-  BASE + 'icon-384.png',
-  BASE + 'icon-512.png'
+  BASE + 'icons/icon-72.png',
+  BASE + 'icons/icon-96.png',
+  BASE + 'icons/icon-128.png',
+  BASE + 'icons/icon-144.png',
+  BASE + 'icons/icon-152.png',
+  BASE + 'icons/icon-192.png',
+  BASE + 'icons/icon-384.png',
+  BASE + 'icons/icon-512.png'
 ];
 
 // ─── CDN Assets: di-cache saat pertama kali diminta ───────────────────────────

@@ -13,49 +13,49 @@
   "categories": ["weather", "utilities", "productivity"],
   "icons": [
     {
-      "src": "/tncf-rainfallmonitor/icon-72.png",
+      "src": "/tncf-rainfallmonitor/icons/icon-72.png",
       "sizes": "72x72",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/tncf-rainfallmonitor/icon-96.png",
+      "src": "/tncf-rainfallmonitor/icons/icon-96.png",
       "sizes": "96x96",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/tncf-rainfallmonitor/icon-128.png",
+      "src": "/tncf-rainfallmonitor/icons/icon-128.png",
       "sizes": "128x128",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/tncf-rainfallmonitor/icon-144.png",
+      "src": "/tncf-rainfallmonitor/icons/icon-144.png",
       "sizes": "144x144",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/tncf-rainfallmonitor/icon-152.png",
+      "src": "/tncf-rainfallmonitor/icons/icon-152.png",
       "sizes": "152x152",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/tncf-rainfallmonitor/icon-192.png",
+      "src": "/tncf-rainfallmonitor/icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/tncf-rainfallmonitor/icon-384.png",
+      "src": "/tncf-rainfallmonitor/icons/icon-384.png",
       "sizes": "384x384",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/tncf-rainfallmonitor/icon-512.png",
+      "src": "/tncf-rainfallmonitor/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
@@ -63,7 +63,7 @@
   ],
   "screenshots": [
     {
-      "src": "/tncf-rainfallmonitor/icon-512.png",
+      "src": "/tncf-rainfallmonitor/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "form_factor": "narrow",
@@ -76,14 +76,14 @@
       "short_name": "Input",
       "description": "Buka halaman input data curah hujan",
       "url": "/tncf-rainfallmonitor/#input",
-      "icons": [{ "src": "/tncf-rainfallmonitor/icon-96.png", "sizes": "96x96" }]
+      "icons": [{ "src": "/tncf-rainfallmonitor/icons/icon-96.png", "sizes": "96x96" }]
     },
     {
       "name": "Dashboard",
       "short_name": "Dashboard",
       "description": "Buka dashboard monitoring",
       "url": "/tncf-rainfallmonitor/#dashboard",
-      "icons": [{ "src": "/tncf-rainfallmonitor/icon-96.png", "sizes": "96x96" }]
+      "icons": [{ "src": "/tncf-rainfallmonitor/icons/icon-96.png", "sizes": "96x96" }]
     }
   ],
   "prefer_related_applications": false
