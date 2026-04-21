@@ -14,26 +14,26 @@
     <meta name="description" content="Aplikasi Monitoring Curah Hujan TNCF - Pantau data hujan harian, rekapitulasi, dan analisis curah hujan.">
     <meta name="application-name" content="TNCF Rainfall Monitor">
     <meta name="msapplication-TileColor" content="#319795">
-    <meta name="msapplication-TileImage" content="icons/icon-144.png">
+    <meta name="msapplication-TileImage" content="icon-144.png">
     <meta name="msapplication-config" content="browserconfig.xml">
 
-    <!-- PWA Manifest — path absolut wajib untuk GitHub Pages subfolder -->
-    <link rel="manifest" href="/tncf-rainfallmonitor/manifest.json">
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
 
     <!-- Ikon untuk iOS (Apple Touch Icon) -->
-    <link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152.png">
-    <link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192.png">
-    <link rel="apple-touch-icon" sizes="512x512" href="icons/icon-512.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="icon-152.png">
+    <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
+    <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png">
     <!-- Fallback icon via Google Drive (jika ikon lokal tidak ada) -->
     <link rel="apple-touch-icon" href="https://lh3.googleusercontent.com/d/1JwSssgU-Dcvy6ovrA2fTk4Pq2z7Wf6Np">
 
     <!-- Favicon -->
-    <link rel="icon" type="image/png" sizes="96x96" href="icons/icon-96.png">
-    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="icon-96.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 
     <!-- iOS Splash Screens -->
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="apple-touch-startup-image" href="icons/icon-512.png">
+    <link rel="apple-touch-startup-image" href="icon-512.png">
 
     <!-- Library Eksternal -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -260,23 +260,40 @@ let siteMapping = {};
 let normalDataMapping = {};
 let myChartCH = null;
 let myChartHH = null;
-let historyData = []; // Wadah penyimpan data riwayat untuk fitur Edit
-const isSimulated = typeof google === 'undefined';
+let historyData = [];
 
-/* ===== KRITIS: beforeinstallprompt HARUS didaftarkan PERTAMA kali ===== */
-// Jangan taruh di bawah — event ini bisa fired sebelum window.onload!
-let deferredPrompt = null;
-window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    console.log('[PWA] beforeinstallprompt ditangkap ✓');
-    // Tampilkan banner segera setelah halaman selesai render
-    if (document.readyState === 'complete') {
-        showInstallBanner();
-    } else {
-        window.addEventListener('load', showInstallBanner, { once: true });
-    }
-});
+// ============================================================
+//  KONFIGURASI GAS API URL
+//  Isi dengan URL deployment GAS kamu setelah deploy sebagai Web App
+//  Contoh: 'https://script.google.com/macros/s/AKfycb.../exec'
+// ============================================================
+const GAS_URL = localStorage.getItem('gas_url') || '';
+
+// Mode simulasi hanya aktif kalau GAS_URL belum diisi
+const isSimulated = !GAS_URL;
+
+// ─── Helper: panggil GAS API via fetch POST ───────────────────────────────────
+async function gasAPI(action, data = {}) {
+  if (isSimulated) throw new Error('GAS_URL belum dikonfigurasi');
+  const res = await fetch(GAS_URL, {
+    method: 'POST',
+    body: JSON.stringify({ action, data }),
+    headers: { 'Content-Type': 'text/plain' } // text/plain wajib untuk GAS doPost via fetch
+  });
+  if (!res.ok) throw new Error('HTTP error: ' + res.status);
+  return res.json();
+}
+
+// Wrapper gasAPI dengan callback style (agar mudah ganti dari google.script.run)
+function gasRun(action, data, onSuccess, onError) {
+  gasAPI(action, data)
+    .then(result => onSuccess(result))
+    .catch(err => {
+      console.error('[GAS API Error]', action, err);
+      if (onError) onError(err);
+      else Swal.fire('Error Koneksi', 'Gagal menghubungi server: ' + err.message, 'error');
+    });
+}
 
 // Data Simulasi (Hanya aktif di Mode Preview Canvas)
 const mockUsers = [
@@ -297,13 +314,13 @@ window.onload = function() {
         normalDataMapping = { "TEMANGGUNG": [384, 336, 314, 268, 162, 92, 43, 41, 62, 165, 284, 336] };
         checkLoginState();
     } else {
-        google.script.run.withSuccessHandler(function(data) {
+        gasRun('getSiteSettings', {}, function(data) {
             if (data.success && Object.keys(data.data).length > 0) siteMapping = data.data;
-            google.script.run.withSuccessHandler(function(res) {
+            gasRun('getNormalData', {}, function(res) {
                 if (res.success) normalDataMapping = res.data;
                 checkLoginState();
-            }).getNormalData();
-        }).getSiteSettings();
+            });
+        });
     }
 };
 
@@ -323,19 +340,46 @@ function checkLoginState() {
 
 /* ================= VIEW: LOGIN ================= */
 function renderLogin() {
+    const savedUrl = localStorage.getItem('gas_url') || '';
     document.getElementById('app').innerHTML = `
     <div class="container d-flex justify-content-center align-items-center" style="min-height: 100vh;">
         <div class="card p-4 shadow-lg w-100" style="max-width: 340px;">
             <div class="text-center mb-2">
                 <img src="https://lh3.googleusercontent.com/d/1yZzBh3-H97ujnjbWC34qGKjd8SmCdHP7" alt="Logo Aplikasi" style="max-width: 260px; margin-bottom: 5px;">
             </div>
+            ${!savedUrl ? `
+            <div class="alert alert-warning p-2 mb-3" style="font-size:0.8rem;">
+                <strong>⚙️ Setup API URL</strong><br>
+                Masukkan URL GAS deployment kamu agar data terhubung ke Spreadsheet.
+                <input type="text" id="gas-url-input" class="form-control form-control-sm mt-2" placeholder="https://script.google.com/macros/s/.../exec" value="${savedUrl}">
+                <button class="btn btn-warning btn-sm w-100 mt-2 fw-bold" onclick="saveGasUrl()">Simpan & Sambungkan</button>
+            </div>` : `
+            <div class="alert alert-success p-2 mb-3" style="font-size:0.78rem;">
+                ✅ Terhubung ke GAS API
+                <button class="btn btn-link btn-sm p-0 ms-2" onclick="resetGasUrl()" style="font-size:0.75rem;">Ganti URL</button>
+            </div>`}
             <form onsubmit="handleLogin(event)">
                 <div class="mb-2"><label class="form-label small fw-bold mb-1">User ID</label><input type="text" id="username" class="form-control" required placeholder="Contoh: ADMIN"></div>
                 <div class="mb-3"><label class="form-label small fw-bold mb-1">Password</label><input type="password" id="password" class="form-control" required></div>
-                <button type="submit" class="btn btn-primary w-100 fw-bold mt-2">MASUK</button>
+                <button type="submit" class="btn btn-primary w-100 fw-bold mt-2" ${!savedUrl ? 'disabled id="login-btn"' : ''}>MASUK</button>
             </form>
         </div>
     </div>`;
+}
+
+function saveGasUrl() {
+    const url = document.getElementById('gas-url-input').value.trim();
+    if (!url || !url.startsWith('https://script.google.com')) {
+        Swal.fire('URL Tidak Valid', 'Masukkan URL GAS yang benar (https://script.google.com/macros/s/.../exec)', 'error');
+        return;
+    }
+    localStorage.setItem('gas_url', url);
+    window.location.reload();
+}
+
+function resetGasUrl() {
+    localStorage.removeItem('gas_url');
+    window.location.reload();
 }
 
 function handleLogin(e) {
@@ -357,7 +401,7 @@ function handleLogin(e) {
             }
         }, 500);
     } else {
-        google.script.run.withSuccessHandler(res => {
+        gasRun('loginUser', {username: u, password: p}, res => {
             endLoading();
             if (res.success) {
                 currentUser = res.user;
@@ -366,7 +410,7 @@ function handleLogin(e) {
             } else {
                 Swal.fire('Gagal', res.message, 'error');
             }
-        }).loginUser({username: u, password: p});
+        });
     }
 }
 
@@ -417,7 +461,6 @@ function renderMainLayout() {
                 <div class="px-3 mt-auto">
                     <hr>
                     <div class="small text-muted mb-2 text-truncate">${currentUser.nama}</div>
-                    <button id="sidebar-install-btn" onclick="installPWA()" class="btn btn-outline-success w-100 btn-sm fw-bold mb-2" style="display:none"><i class="fas fa-download me-1"></i>Install App</button>
                     <button class="btn btn-outline-danger w-100 btn-sm fw-bold" onclick="handleLogout()">LOGOUT</button>
                 </div>
             </nav>
@@ -429,8 +472,6 @@ function renderMainLayout() {
     </div>`;
 
     switchMenu('dashboard');
-    // Tampilkan tombol install di sidebar jika PWA belum diinstall
-    setTimeout(refreshInstallButton, 500);
 }
 
 function switchMenu(menuId) {
@@ -788,7 +829,7 @@ function handleInput(e) {
     const p = { site: document.getElementById('f-site').value, obs: document.getElementById('f-obs').value, tanggal: document.getElementById('f-date').value, ombro: document.getElementById('f-ombro').value, userInput: currentUser.nama };
     startLoading();
     if (isSimulated) { setTimeout(() => { endLoading(); mockDB.push({...p, ID:Date.now(), Nilai_CH:Math.round(p.ombro/95*10)}); Swal.fire('Sukses','(Simulasi)','success'); }, 500); }
-    else google.script.run.withSuccessHandler(res => { endLoading(); if(res.success) Swal.fire('Berhasil','Data tersimpan','success'); else Swal.fire('Gagal',res.message,'error'); }).saveRainfallData(p);
+    else gasRun('saveRainfallData', p, res => { endLoading(); if(res.success) Swal.fire('Berhasil','Data tersimpan','success'); else Swal.fire('Gagal',res.message,'error'); });
 }
 
 function renderHistory(c) {
@@ -838,14 +879,14 @@ function editData(id) {
                     endLoading(); Swal.fire('Sukses', '(Simulasi)', 'success'); switchMenu('history');
                 }, 500);
             } else {
-                google.script.run.withSuccessHandler(res => {
+                gasRun('saveRainfallData', r.value, res => {
                     endLoading();
                     if (res.success) { 
                         Swal.fire('Berhasil', 'Data berhasil diperbarui', 'success'); 
                         switchMenu('history');
                     } 
                     else { Swal.fire('Gagal', res.message, 'error'); }
-                }).saveRainfallData(r.value);
+                });
             }
         }
     });
@@ -853,12 +894,12 @@ function editData(id) {
 
 function renderUsers(c) {
     c.innerHTML = `<div class="d-flex justify-content-between mb-4"><h5>Kelola User</h5><button class="btn btn-primary btn-sm" onclick="showUserForm()">+ Tambah</button></div><div class="card"><table class="table table-hover mb-0"><thead><tr><th>User</th><th>Nama</th><th>Role</th><th>Aksi</th></tr></thead><tbody id="u-list"></tbody></table></div>`;
-    google.script.run.withSuccessHandler(r => document.getElementById('u-list').innerHTML=r.data.map(u=>`<tr><td>${u.username}</td><td>${u.nama}</td><td>${u.role}</td><td><button class="btn btn-sm btn-danger" onclick="delUser('${u.username}')">Hapus</button></td></tr>`).join('')).getUsersList();
+    gasRun('getUsersList', {}, r => document.getElementById('u-list').innerHTML=r.data.map(u=>`<tr><td>${u.username}</td><td>${u.nama}</td><td>${u.role}</td><td><button class="btn btn-sm btn-danger" onclick="delUser('${u.username}')">Hapus</button></td></tr>`).join(''));
 }
-function delUser(u) { google.script.run.withSuccessHandler(()=>switchMenu('users')).deleteUser(u); }
+function delUser(u) { gasRun('deleteUser', {username: u}, ()=>switchMenu('users')); }
 function showUserForm(u=null) {
     const isEdit=!!u;
-    Swal.fire({title:isEdit?'Edit':'Tambah', html:`<input id="u-user" class="form-control mb-2" placeholder="Username" value="${u?u.username:''}"><input id="u-pass" class="form-control mb-2" placeholder="Password"><input id="u-nama" class="form-control mb-2" placeholder="Nama" value="${u?u.nama:''}"><select id="u-role" class="form-select mb-2"><option value="STAFF">STAFF</option><option value="MANAGER">MANAGER</option><option value="ADMIN">ADMIN</option></select><select id="u-site" class="form-select"><option value="ALL">ALL</option>${Object.keys(siteMapping).map(s=>`<option value="${s}">${s}</option>`).join('')}</select>`, showCancelButton:true, preConfirm:()=>{ return {isEdit, oldUsername:u?u.username:'', username:document.getElementById('u-user').value, password:document.getElementById('u-pass').value, nama:document.getElementById('u-nama').value, role:document.getElementById('u-role').value, site:document.getElementById('u-site').value}} }).then(r=>{ if(r.isConfirmed) { startLoading(); google.script.run.withSuccessHandler(()=>{endLoading();switchMenu('users')}).saveUser(r.value); } });
+    Swal.fire({title:isEdit?'Edit':'Tambah', html:`<input id="u-user" class="form-control mb-2" placeholder="Username" value="${u?u.username:''}"><input id="u-pass" class="form-control mb-2" placeholder="Password"><input id="u-nama" class="form-control mb-2" placeholder="Nama" value="${u?u.nama:''}"><select id="u-role" class="form-select mb-2"><option value="STAFF">STAFF</option><option value="MANAGER">MANAGER</option><option value="ADMIN">ADMIN</option></select><select id="u-site" class="form-select"><option value="ALL">ALL</option>${Object.keys(siteMapping).map(s=>`<option value="${s}">${s}</option>`).join('')}</select>`, showCancelButton:true, preConfirm:()=>{ return {isEdit, oldUsername:u?u.username:'', username:document.getElementById('u-user').value, password:document.getElementById('u-pass').value, nama:document.getElementById('u-nama').value, role:document.getElementById('u-role').value, site:document.getElementById('u-site').value}} }).then(r=>{ if(r.isConfirmed) { startLoading(); gasRun('saveUser', r.value, ()=>{endLoading();switchMenu('users')}); } });
 }
 
 function renderObsManagement(c) {
@@ -866,9 +907,9 @@ function renderObsManagement(c) {
     c.innerHTML = `<div class="d-flex justify-content-between mb-4"><h5>Kelola OBS</h5><button class="btn btn-primary btn-sm" onclick="showObsForm()">+ Tambah Site</button></div><div class="card"><table class="table table-hover mb-0"><thead><tr><th>Site</th><th>OBS</th><th>Aksi</th></tr></thead><tbody id="obs-list">${sites.map(s=>`<tr><td>${s}</td><td>${siteMapping[s].join(', ')}</td><td><button class="btn btn-sm btn-danger" onclick="delSite('${s}')">Hapus</button></td></tr>`).join('')}</tbody></table></div>`;
 }
 function showObsForm(s=null) {
-    Swal.fire({title:s?'Edit':'Tambah', html:`<input id="o-site" class="form-control mb-2" placeholder="Nama Site" value="${s||''}" ${s?'readonly':''}><textarea id="o-obs" class="form-control" placeholder="OBS (Pisahkan koma)">${s?siteMapping[s].join(','):''}</textarea>`, showCancelButton:true, preConfirm:()=>{ return {oldSiteName:s, site:document.getElementById('o-site').value.trim().toUpperCase(), obs:document.getElementById('o-obs').value.trim()} } }).then(r=>{ if(r.isConfirmed) { startLoading(); google.script.run.withSuccessHandler(()=>{ google.script.run.withSuccessHandler(d=>{siteMapping=d.data; endLoading(); switchMenu('obs')}).getSiteSettings(); }).saveSiteSetting(r.value); } });
+    Swal.fire({title:s?'Edit':'Tambah', html:`<input id="o-site" class="form-control mb-2" placeholder="Nama Site" value="${s||''}" ${s?'readonly':''}><textarea id="o-obs" class="form-control" placeholder="OBS (Pisahkan koma)">${s?siteMapping[s].join(','):''}</textarea>`, showCancelButton:true, preConfirm:()=>{ return {oldSiteName:s, site:document.getElementById('o-site').value.trim().toUpperCase(), obs:document.getElementById('o-obs').value.trim()} } }).then(r=>{ if(r.isConfirmed) { startLoading(); gasRun('saveSiteSetting', r.value, ()=>{ gasRun('getSiteSettings', {}, d=>{siteMapping=d.data; endLoading(); switchMenu('obs')}); }); } });
 }
-function delSite(s) { google.script.run.withSuccessHandler(()=>{ google.script.run.withSuccessHandler(d=>{siteMapping=d.data; switchMenu('obs')}).getSiteSettings(); }).deleteSiteSetting(s); }
+function delSite(s) { gasRun('deleteSiteSetting', {site: s}, ()=>{ gasRun('getSiteSettings', {}, d=>{siteMapping=d.data; switchMenu('obs')}); }); }
 
 function renderNormalDataManagement(c) {
     const sites = Object.keys(siteMapping);
@@ -883,15 +924,16 @@ function saveND() {
     const s = document.getElementById('nd-site').value;
     const v = Array.from(document.querySelectorAll('.nd-val')).map(i=>parseFloat(i.value));
     startLoading();
-    google.script.run.withSuccessHandler(res => { endLoading(); if(res.success){ normalDataMapping[s]=v; Swal.fire('Berhasil','','success'); } }).saveNormalData({site:s, values:v});
+    gasRun('saveNormalData', {site:s, values:v}, res => { endLoading(); if(res.success){ normalDataMapping[s]=v; Swal.fire('Berhasil','','success'); } });
 }
 
 function fetchData(cb) {
     if (isSimulated) cb(currentUser.role==='STAFF' ? mockDB.filter(d=>d.Site===currentUser.site) : mockDB);
-    else google.script.run.withSuccessHandler(res => { if(res.success) cb(res.data); }).getRainfallData(currentUser.role, currentUser.site);
+    else gasRun('getRainfallData', {role: currentUser.role, site: currentUser.site}, res => { if(res.success) cb(res.data); });
 }
 
 /* ===== PWA INSTALL BANNER ===== */
+let deferredPrompt;
 
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
@@ -902,13 +944,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
 function showInstallBanner() {
     // Jangan tampilkan kalau sudah pernah di-dismiss
     if (localStorage.getItem('pwa_dismissed')) return;
-    // Jangan tampilkan kalau deferredPrompt belum ada
-    if (!deferredPrompt) return;
     
-    // Hapus banner lama kalau ada
-    const old = document.getElementById('install-banner');
-    if (old) old.remove();
-
     const banner = document.createElement('div');
     banner.id = 'install-banner';
     banner.innerHTML = `
@@ -918,9 +954,8 @@ function showInstallBanner() {
             border-radius: 12px; display: flex; align-items: center; 
             justify-content: space-between; z-index: 9998;
             box-shadow: 0 4px 15px rgba(0,0,0,0.2); font-size: 0.85rem;
-            animation: slideUp 0.4s ease;
         ">
-            <span>📲 Install app TNCF di HP kamu?</span>
+            <span>📲 Install app Curah Hujan di HP kamu?</span>
             <div>
                 <button onclick="installPWA()" style="
                     background: white; color: #319795; border: none; 
@@ -958,16 +993,7 @@ function dismissBanner() {
 window.addEventListener('appinstalled', () => {
     console.log('[PWA] App berhasil diinstall');
     dismissBanner();
-    // Sembunyikan tombol install di sidebar
-    const btn = document.getElementById('sidebar-install-btn');
-    if (btn) btn.style.display = 'none';
 });
-
-// Tampilkan tombol install di sidebar jika deferredPrompt tersedia
-function refreshInstallButton() {
-    const btn = document.getElementById('sidebar-install-btn');
-    if (btn) btn.style.display = deferredPrompt ? 'block' : 'none';
-}
 
 /* ===== SERVICE WORKER REGISTRATION ===== */
 let swRegistration = null;
@@ -975,9 +1001,7 @@ let newWorker = null;
 
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        // Daftarkan SW TANPA explicit scope — browser otomatis set scope ke lokasi sw.js
-        // Ini wajib untuk GitHub Pages karena tidak support header Service-Worker-Allowed
-        navigator.serviceWorker.register('./sw.js')
+        navigator.serviceWorker.register('./sw.js', { scope: '/tncf-rainfallmonitor/' })
             .then(reg => {
                 swRegistration = reg;
                 console.log('[PWA] Service Worker terdaftar:', reg.scope);
@@ -1069,9 +1093,9 @@ function syncPendingDataFromSW() {
     syncBar.classList.add('show');
 
     let processed = 0;
-    queue.forEach((payload, idx) => {
-        google.script.run
-            .withSuccessHandler(() => {
+    queue.forEach((payload) => {
+        gasRun('saveRainfallData', payload,
+            () => {
                 processed++;
                 const newQueue = JSON.parse(localStorage.getItem('ch_offline_queue') || '[]')
                     .filter(item => item._queuedAt !== payload._queuedAt);
@@ -1080,9 +1104,9 @@ function syncPendingDataFromSW() {
                     syncBar.classList.remove('show');
                     Swal.fire('Sinkronisasi Selesai', `${processed} data berhasil dikirim.`, 'success');
                 }
-            })
-            .withFailureHandler(() => { processed++; if (processed === queue.length) syncBar.classList.remove('show'); })
-            .saveRainfallData(payload);
+            },
+            () => { processed++; if (processed === queue.length) syncBar.classList.remove('show'); }
+        );
     });
 }
 
