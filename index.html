@@ -942,7 +942,7 @@ let newWorker = null;
 
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js', { scope: './' })
+        navigator.serviceWorker.register('./sw.js', { scope: '/tncf-rainfallmonitor/' })
             .then(reg => {
                 swRegistration = reg;
                 console.log('[PWA] Service Worker terdaftar:', reg.scope);

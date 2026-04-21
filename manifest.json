@@ -2,8 +2,8 @@
   "name": "TNCF Rainfall Monitor",
   "short_name": "TNCF Rain",
   "description": "Aplikasi Monitoring Curah Hujan TNCF - Pantau data hujan harian, rekapitulasi, dan analisis curah hujan secara real-time.",
-  "start_url": "./index.html",
-  "scope": "./",
+  "start_url": "/tncf-rainfallmonitor/index.html?pwa=1",
+  "scope": "/tncf-rainfallmonitor/",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#e2e8f0",
@@ -75,14 +75,14 @@
       "name": "Input Data Hujan",
       "short_name": "Input",
       "description": "Buka halaman input data curah hujan",
-      "url": "./index.html#input",
+      "url": "/tncf-rainfallmonitor/index.html#input",
       "icons": [{ "src": "icon-96.png", "sizes": "96x96" }]
     },
     {
       "name": "Dashboard",
       "short_name": "Dashboard",
       "description": "Buka dashboard monitoring",
-      "url": "./index.html#dashboard",
+      "url": "/tncf-rainfallmonitor/index.html#dashboard",
       "icons": [{ "src": "icon-96.png", "sizes": "96x96" }]
     }
   ],

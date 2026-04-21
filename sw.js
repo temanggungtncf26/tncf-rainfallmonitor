@@ -12,18 +12,19 @@ const SHELL_CACHE   = `${CACHE_VERSION}-shell`;
 const CDN_CACHE     = `${CACHE_VERSION}-cdn`;
 
 // ─── App Shell: file-file lokal yang wajib di-cache ───────────────────────────
+const REPO_PATH = '/tncf-rainfallmonitor';
 const SHELL_ASSETS = [
-  './index.html',
-  './offline.html',
-  './manifest.json',
-  './icon-72.png',
-  './icon-96.png',
-  './icon-128.png',
-  './icon-144.png',
-  './icon-152.png',
-  './icon-192.png',
-  './icon-384.png',
-  './icon-512.png'
+  `${REPO_PATH}/index.html`,
+  `${REPO_PATH}/offline.html`,
+  `${REPO_PATH}/manifest.json`,
+  `${REPO_PATH}/icon-72.png`,
+  `${REPO_PATH}/icon-96.png`,
+  `${REPO_PATH}/icon-128.png`,
+  `${REPO_PATH}/icon-144.png`,
+  `${REPO_PATH}/icon-152.png`,
+  `${REPO_PATH}/icon-192.png`,
+  `${REPO_PATH}/icon-384.png`,
+  `${REPO_PATH}/icon-512.png`
 ];
 
 // ─── CDN Assets: di-cache saat pertama kali diminta ───────────────────────────
