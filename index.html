@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -14,26 +14,23 @@
     <meta name="description" content="Aplikasi Monitoring Curah Hujan TNCF - Pantau data hujan harian, rekapitulasi, dan analisis curah hujan.">
     <meta name="application-name" content="TNCF Rainfall Monitor">
     <meta name="msapplication-TileColor" content="#319795">
-    <meta name="msapplication-TileImage" content="icon-144.png">
+    <meta name="msapplication-TileImage" content="./icons/icon-144.png">
     <meta name="msapplication-config" content="browserconfig.xml">
 
     <!-- PWA Manifest -->
-    <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="./manifest.json">
 
     <!-- Ikon untuk iOS (Apple Touch Icon) -->
-    <link rel="apple-touch-icon" sizes="152x152" href="icon-152.png">
-    <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
-    <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png">
-    <!-- Fallback icon via Google Drive (jika ikon lokal tidak ada) -->
-    <link rel="apple-touch-icon" href="https://lh3.googleusercontent.com/d/1JwSssgU-Dcvy6ovrA2fTk4Pq2z7Wf6Np">
+    <link rel="apple-touch-icon" sizes="152x152" href="./icons/icon-152.png">
+    <link rel="apple-touch-icon" sizes="192x192" href="./icons/icon-192.png">
+    <link rel="apple-touch-icon" sizes="512x512" href="./icons/icon-512.png">
 
     <!-- Favicon -->
-    <link rel="icon" type="image/png" sizes="96x96" href="icon-96.png">
-    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="./icons/icon-96.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
 
-    <!-- iOS Splash Screens -->
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="apple-touch-startup-image" href="icon-512.png">
+    <!-- iOS Splash Screen -->
+    <link rel="apple-touch-startup-image" href="./icons/icon-512.png">
 
     <!-- Library Eksternal -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -181,7 +178,6 @@
 
         /* ===== UPDATE BANNER ===== */
         #update-banner {
-            display: none;
             position: fixed;
             bottom: 80px; left: 10px; right: 10px;
             background: #2b6cb0;
@@ -258,17 +254,20 @@
 let currentUser = JSON.parse(localStorage.getItem('ch_app_user')) || null;
 let siteMapping = {}; 
 let normalDataMapping = {};
+let normalDataDasarianMapping = {};
 let myChartCH = null;
 let myChartHH = null;
 let historyData = [];
 
 // ============================================================
-//  KONFIGURASI GAS API URL — MODE LIVE (hardcoded)
+//  KONFIGURASI GAS API URL
+//  Isi dengan URL deployment GAS kamu setelah deploy sebagai Web App
+//  Contoh: 'https://script.google.com/macros/s/AKfycb.../exec'
 // ============================================================
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzJL-N5UcevIHBK5Yp_ahJ2asnCQaQQ18BiT97KjcCFEhefcuQBpm8MWkNIsejoyNsvog/exec';
+const GAS_URL = localStorage.getItem('gas_url') || '';
 
-// Mode simulasi dimatikan permanen
-const isSimulated = false;
+// Mode simulasi hanya aktif kalau GAS_URL belum diisi
+const isSimulated = !GAS_URL;
 
 // ─── Helper: panggil GAS API via fetch POST ───────────────────────────────────
 async function gasAPI(action, data = {}) {
@@ -310,18 +309,21 @@ window.onload = function() {
     if (isSimulated) {
         siteMapping = { "TEMANGGUNG": ["SIN1", "SIN2"], "MADURA": ["GNG1"] };
         normalDataMapping = { "TEMANGGUNG": [384, 336, 314, 268, 162, 92, 43, 41, 62, 165, 284, 336] };
+        normalDataDasarianMapping = { "TEMANGGUNG": new Array(36).fill(0) };
         checkLoginState();
     } else {
         gasRun('getSiteSettings', {}, function(data) {
             if (data.success && Object.keys(data.data).length > 0) siteMapping = data.data;
             gasRun('getNormalData', {}, function(res) {
                 if (res.success) normalDataMapping = res.data;
-                checkLoginState();
+                gasRun('getNormalDataDasarian', {}, function(resDas) {
+                    if (resDas.success) normalDataDasarianMapping = resDas.data;
+                    checkLoginState();
+                });
             });
         });
     }
 };
-
 function startLoading(text) {
     document.getElementById('loading-text').innerText = text || "Memproses...";
     document.getElementById('loading-overlay').style.display = 'flex';
@@ -338,19 +340,28 @@ function checkLoginState() {
 
 /* ================= VIEW: LOGIN ================= */
 function renderLogin() {
+    const savedUrl = localStorage.getItem('gas_url') || '';
     document.getElementById('app').innerHTML = `
     <div class="container d-flex justify-content-center align-items-center" style="min-height: 100vh;">
         <div class="card p-4 shadow-lg w-100" style="max-width: 340px;">
             <div class="text-center mb-2">
                 <img src="https://lh3.googleusercontent.com/d/1yZzBh3-H97ujnjbWC34qGKjd8SmCdHP7" alt="Logo Aplikasi" style="max-width: 260px; margin-bottom: 5px;">
             </div>
+            ${!savedUrl ? `
+            <div class="alert alert-warning p-2 mb-3" style="font-size:0.8rem;">
+                <strong>⚙️ Setup API URL</strong><br>
+                Masukkan URL GAS deployment kamu agar data terhubung ke Spreadsheet.
+                <input type="text" id="gas-url-input" class="form-control form-control-sm mt-2" placeholder="https://script.google.com/macros/s/.../exec" value="${savedUrl}">
+                <button class="btn btn-warning btn-sm w-100 mt-2 fw-bold" onclick="saveGasUrl()">Simpan & Sambungkan</button>
+            </div>` : `
             <div class="alert alert-success p-2 mb-3" style="font-size:0.78rem;">
                 ✅ Terhubung ke GAS API
-            </div>
+                <button class="btn btn-link btn-sm p-0 ms-2" onclick="resetGasUrl()" style="font-size:0.75rem;">Ganti URL</button>
+            </div>`}
             <form onsubmit="handleLogin(event)">
                 <div class="mb-2"><label class="form-label small fw-bold mb-1">User ID</label><input type="text" id="username" class="form-control" required placeholder="Contoh: ADMIN"></div>
                 <div class="mb-3"><label class="form-label small fw-bold mb-1">Password</label><input type="password" id="password" class="form-control" required></div>
-                <button type="submit" class="btn btn-primary w-100 fw-bold mt-2">MASUK</button>
+                <button type="submit" class="btn btn-primary w-100 fw-bold mt-2" ${!savedUrl ? 'disabled id="login-btn"' : ''}>MASUK</button>
             </form>
         </div>
     </div>`;
@@ -581,6 +592,8 @@ function updateCharts(data, period, site) {
     let chDatasets = [{ label: 'CH Aktual (Rata-rata)', data: chData, borderColor: '#319795', backgroundColor: 'rgba(49, 151, 149, 0.1)', fill: true, tension: 0.3 }];
     if (period === 'MONTHLY' && site !== 'ALL' && normalDataMapping[site]) {
         chDatasets.push({ label: 'Normal 30Th', data: normalDataMapping[site], borderColor: '#d69e2e', borderDash: [5,5], pointRadius: 0, fill: false });
+    } else if (period === 'DASARIAN' && site !== 'ALL' && normalDataDasarianMapping[site]) {
+        chDatasets.push({ label: 'Normal Dasarian 30Th', data: normalDataDasarianMapping[site], borderColor: '#d69e2e', borderDash: [5,5], pointRadius: 0, fill: false });
     }
 
     // Pengaturan untuk label angka di atas titik/batang grafik
@@ -756,11 +769,16 @@ function generateTableHTML(data, obsList, type, site) {
     let analysisHTML = '';
     let footerLegend = '';
 
+    let useNormal = false;
+    let normals = [];
     if (isCH && isMonth && site !== 'ALL' && normalDataMapping[site]) {
-        const normals = normalDataMapping[site];
+        useNormal = true; normals = normalDataMapping[site];
+    } else if (isCH && type === 'CH_DAS' && site !== 'ALL' && normalDataDasarianMapping[site]) {
+        useNormal = true; normals = normalDataDasarianMapping[site];
+    }
+
+    if (useNormal) {
         const diff = avgActual.map((v, i) => v - normals[i]);
-        const sifat = avgActual.map((v, i) => {
-            const n = normals[i];
             if (n === 0) return '-';
             const pct = (v / n) * 100;
             return pct > 115 ? '<span class="badge bg-primary badge-sifat">AN</span>' : (pct < 85 ? '<span class="badge bg-warning text-dark badge-sifat">BN</span>' : '<span class="badge bg-success badge-sifat">N</span>');
@@ -902,18 +920,47 @@ function delSite(s) { gasRun('deleteSiteSetting', {site: s}, ()=>{ gasRun('getSi
 
 function renderNormalDataManagement(c) {
     const sites = Object.keys(siteMapping);
-    c.innerHTML = `<div class="card p-4"><h5>Data Normal 30 Tahun</h5><select id="nd-site" class="form-select mb-3" onchange="loadND()"><option value="">-- Pilih Site --</option>${sites.map(s=>`<option value="${s}">${s}</option>`).join('')}</select><div id="nd-inputs" class="row g-2"></div><button class="btn btn-primary mt-3" onclick="saveND()">Simpan</button></div>`;
+    c.innerHTML = `<div class="card p-4"><h5>Data Normal 30 Tahun</h5>
+        <div class="row mb-3">
+            <div class="col-md-6"><select id="nd-site" class="form-select" onchange="loadND()"><option value="">-- Pilih Site --</option>${sites.map(s=>`<option value="${s}">${s}</option>`).join('')}</select></div>
+            <div class="col-md-6"><select id="nd-type" class="form-select" onchange="loadND()"><option value="MONTHLY">Normal Bulanan</option><option value="DASARIAN">Normal Dasarian</option></select></div>
+        </div>
+        <div id="nd-inputs" class="row g-2"></div><button class="btn btn-primary mt-3" onclick="saveND()">Simpan</button></div>`;
 }
 function loadND() {
     const s = document.getElementById('nd-site').value;
-    const v = normalDataMapping[s] || new Array(12).fill(0);
-    document.getElementById('nd-inputs').innerHTML = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"].map((m,i)=>`<div class="col-3"><label class="small">${m}</label><input type="number" class="form-control form-control-sm nd-val" value="${v[i]}"></div>`).join('');
+    const type = document.getElementById('nd-type').value;
+    if(!s) { document.getElementById('nd-inputs').innerHTML = ''; return; }
+    
+    if (type === 'MONTHLY') {
+        const v = normalDataMapping[s] || new Array(12).fill(0);
+        document.getElementById('nd-inputs').innerHTML = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"].map((m,i)=>`<div class="col-3"><label class="small fw-bold text-primary">${m}</label><input type="number" class="form-control form-control-sm nd-val" value="${v[i]}"></div>`).join('');
+    } else {
+        const v = normalDataDasarianMapping[s] || new Array(36).fill(0);
+        const months = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
+        let html = '';
+        months.forEach((m, i) => {
+            html += `<div class="col-4 mb-2"><label class="small fw-bold text-primary">${m}</label>
+                     <div class="d-flex gap-1">
+                         <input type="number" class="form-control form-control-sm nd-val" value="${v[i*3]}" placeholder="D1" title="${m} Dasarian 1">
+                         <input type="number" class="form-control form-control-sm nd-val" value="${v[i*3+1]}" placeholder="D2" title="${m} Dasarian 2">
+                         <input type="number" class="form-control form-control-sm nd-val" value="${v[i*3+2]}" placeholder="D3" title="${m} Dasarian 3">
+                     </div></div>`;
+        });
+        document.getElementById('nd-inputs').innerHTML = html;
+    }
 }
 function saveND() {
     const s = document.getElementById('nd-site').value;
-    const v = Array.from(document.querySelectorAll('.nd-val')).map(i=>parseFloat(i.value));
+    const type = document.getElementById('nd-type').value;
+    if(!s) return Swal.fire('Peringatan','Pilih site terlebih dahulu','warning');
+    const v = Array.from(document.querySelectorAll('.nd-val')).map(i=>parseFloat(i.value) || 0);
     startLoading();
-    gasRun('saveNormalData', {site:s, values:v}, res => { endLoading(); if(res.success){ normalDataMapping[s]=v; Swal.fire('Berhasil','','success'); } });
+    if (type === 'MONTHLY') {
+        gasRun('saveNormalData', {site:s, values:v}, res => { endLoading(); if(res.success){ normalDataMapping[s]=v; Swal.fire('Berhasil','Data Normal Bulanan Disimpan','success'); } });
+    } else {
+        gasRun('saveNormalDataDasarian', {site:s, values:v}, res => { endLoading(); if(res.success){ normalDataDasarianMapping[s]=v; Swal.fire('Berhasil','Data Normal Dasarian Disimpan','success'); } });
+    }
 }
 
 function fetchData(cb) {
@@ -990,7 +1037,7 @@ let newWorker = null;
 
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js', { scope: '/tncf-rainfallmonitor/' })
+        navigator.serviceWorker.register('./sw.js')
             .then(reg => {
                 swRegistration = reg;
                 console.log('[PWA] Service Worker terdaftar:', reg.scope);
