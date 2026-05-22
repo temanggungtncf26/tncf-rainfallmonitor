@@ -531,70 +531,98 @@ function refreshDashboardData() {
 }
 
 function updateCharts(data, period, site) {
-    let labels = [], chData = [], hhData = [];
+    let labels = [];
     const months = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
 
-    // MENGHITUNG JUMLAH OBS UNTUK PEMBAGI RATA-RATA
-    const obsList = (site === 'ALL') ? [...new Set(data.map(d => d.OBS))] : (siteMapping[site] || []);
-    const obsCount = obsList.length > 0 ? obsList.length : 1;
-
+    // Setup Labels
     if (period === 'MONTHLY') {
         labels = months;
-        chData = new Array(12).fill(0); hhData = new Array(12).fill(0);
-        data.forEach(d => {
-            const m = new Date(d.Tanggal).getMonth();
-            const v = parseFloat(d.Nilai_CH);
-            chData[m] += v;
-            if(v > 0.5) hhData[m]++;
-        });
     } else if (period === 'DASARIAN') {
         months.forEach(m => labels.push(`${m}-1`, `${m}-2`, `${m}-3`));
-        chData = new Array(36).fill(0); hhData = new Array(36).fill(0);
-        data.forEach(d => {
-            const dt = new Date(d.Tanggal);
-            const m = dt.getMonth();
-            const day = dt.getDate();
-            let dIdx = 2; 
-            if(day <= 10) dIdx = 0; else if(day <= 20) dIdx = 1;
-            const idx = (m * 3) + dIdx;
-            chData[idx] += parseFloat(d.Nilai_CH);
-            if(parseFloat(d.Nilai_CH) > 0.5) hhData[idx]++;
-        });
     } else { // WEEKLY
         months.forEach(m => labels.push(`${m}-1`, `${m}-2`, `${m}-3`, `${m}-4`));
-        chData = new Array(48).fill(0); hhData = new Array(48).fill(0);
-        data.forEach(d => {
+    }
+
+    let chDatasets = [];
+    let hhDatasets = [];
+    
+    // Palet warna untuk komparasi antar site
+    const colors = ['#319795', '#e53e3e', '#3182ce', '#d69e2e', '#805ad5', '#dd6b20', '#38a169', '#00b5d8', '#d53f8c'];
+
+    // Jika mode 'ALL', ambil semua site. Jika tidak, hanya site terpilih.
+    const targetSites = (site === 'ALL') ? Object.keys(siteMapping) : [site];
+
+    targetSites.forEach((currentSite, index) => {
+        let chData = new Array(labels.length).fill(0);
+        let hhData = new Array(labels.length).fill(0);
+
+        // Ambil data khusus site ini
+        const siteData = data.filter(d => d.Site === currentSite);
+
+        // Hitung jumlah OBS khusus site ini untuk pembagi rata-rata
+        const obsList = siteMapping[currentSite] || [];
+        const obsCount = obsList.length > 0 ? obsList.length : 1;
+
+        siteData.forEach(d => {
             const dt = new Date(d.Tanggal);
             const m = dt.getMonth();
             const day = dt.getDate();
-            let wIdx = 3; 
-            if(day <= 7) wIdx = 0; else if(day <= 14) wIdx = 1; else if(day <= 21) wIdx = 2;
-            const idx = (m * 4) + wIdx;
+            let idx = 0;
+
+            if (period === 'MONTHLY') {
+                idx = m;
+            } else if (period === 'DASARIAN') {
+                let dIdx = 2; if(day <= 10) dIdx = 0; else if(day <= 20) dIdx = 1;
+                idx = (m * 3) + dIdx;
+            } else { // WEEKLY
+                let wIdx = 3; if(day <= 7) wIdx = 0; else if(day <= 14) wIdx = 1; else if(day <= 21) wIdx = 2;
+                idx = (m * 4) + wIdx;
+            }
+
             chData[idx] += parseFloat(d.Nilai_CH);
             if(parseFloat(d.Nilai_CH) > 0.5) hhData[idx]++;
         });
-    }
 
-    // UBAH TOTAL MENJADI RATA-RATA (dibagi jumlah OBS, dibulatkan proporsional mutlak tanpa koma)
-    chData = chData.map(val => Math.round(val / obsCount));
-    hhData = hhData.map(val => Math.round(val / obsCount));
+        // Ubah total menjadi rata-rata
+        chData = chData.map(val => Math.round(val / obsCount));
+        hhData = hhData.map(val => Math.round(val / obsCount));
+
+        const color = colors[index % colors.length];
+
+        chDatasets.push({
+            label: site === 'ALL' ? currentSite : 'CH Aktual (Rata-rata)',
+            data: chData,
+            borderColor: color,
+            backgroundColor: site === 'ALL' ? color : 'rgba(49, 151, 149, 0.1)',
+            fill: site !== 'ALL', // Jangan di-fill area bawah jika komparasi agar garisnya jelas
+            tension: 0.3
+        });
+
+        hhDatasets.push({
+            label: site === 'ALL' ? currentSite : 'Hari Hujan (Rata-rata)',
+            data: hhData,
+            backgroundColor: site === 'ALL' ? color : '#4fd1c5'
+        });
+    });
+
+    // Tambah garis Normal Data khusus jika HANYA melihat 1 site
+    if (site !== 'ALL') {
+        if (period === 'MONTHLY' && normalDataMapping[site]) {
+            chDatasets.push({ label: 'Normal 30Th', data: normalDataMapping[site], borderColor: '#d69e2e', borderDash: [5,5], pointRadius: 0, fill: false });
+        } else if (period === 'DASARIAN' && normalDasarianMapping[site]) {
+            chDatasets.push({ label: 'Normal 30Th (Dasarian)', data: normalDasarianMapping[site], borderColor: '#d69e2e', borderDash: [5,5], pointRadius: 0, fill: false });
+        }
+    }
 
     if (myChartCH) myChartCH.destroy();
     if (myChartHH) myChartHH.destroy();
 
-    // Chart CH with Normal Data Line
-    let chDatasets = [{ label: 'CH Aktual (Rata-rata)', data: chData, borderColor: '#319795', backgroundColor: 'rgba(49, 151, 149, 0.1)', fill: true, tension: 0.3 }];
-    if (period === 'MONTHLY' && site !== 'ALL' && normalDataMapping[site]) {
-        chDatasets.push({ label: 'Normal 30Th', data: normalDataMapping[site], borderColor: '#d69e2e', borderDash: [5,5], pointRadius: 0, fill: false });
-    } else if (period === 'DASARIAN' && site !== 'ALL' && normalDasarianMapping[site]) {
-        chDatasets.push({ label: 'Normal 30Th (Dasarian)', data: normalDasarianMapping[site], borderColor: '#d69e2e', borderDash: [5,5], pointRadius: 0, fill: false });
-    }
-
-    // Pengaturan untuk label angka di atas titik/batang grafik
+    // Sembunyikan angka label (datalabels) saat mode "Semua Site" agar tidak numpuk berantakan
     const labelOptions = {
         maintainAspectRatio: false,
         plugins: {
             datalabels: {
+                display: site !== 'ALL', 
                 color: '#444',
                 anchor: 'end',
                 align: 'top',
@@ -615,7 +643,7 @@ function updateCharts(data, period, site) {
     myChartHH = new Chart(document.getElementById('chartHH'), { 
         type: 'bar', 
         plugins: [ChartDataLabels],
-        data: { labels, datasets: [{ label: 'Hari Hujan (Rata-rata)', data: hhData, backgroundColor: '#4fd1c5' }] }, 
+        data: { labels, datasets: hhDatasets }, 
         options: labelOptions 
     });
 }
